@@ -1,0 +1,16 @@
+Created by M. S. Bahramy
+
+calc_only_A  :  F
+
+begin real_lattice
+   3.3620000   0.0000000   0.0000000
+   0.0000000   3.3620000   0.0000000
+   0.0000000   0.0000000  12.9830000
+end real_lattice
+
+begin recip_lattice
+   1.8688832   0.0000000   0.0000000
+   0.0000000   1.8688832   0.0000000
+   0.0000000   0.0000000   0.4839548
+end recip_lattice
+

@@ -1,18 +1,22 @@
 import numpy as np
-
+from wann_tools.util import batched_eigh
 
 pauli = {
-    '0': np.array([[1,0],[0,1]], dtype=complex),
-    'x': np.array([[0,1],[1,0]], dtype=complex),
-    'y': np.array([[0,-1j],[1j,0]], dtype=complex),
-    'z': np.array([[1,0],[0,-1]], dtype=complex),
+    '0': np.array([[1,0],[0,1]], dtype=np.complex64),
+    'x': np.array([[0,1],[1,0]], dtype=np.complex64),
+    'y': np.array([[0,-1j],[1j,0]], dtype=np.complex64),
+    'z': np.array([[1,0],[0,-1]], dtype=np.complex64),
 }
 
-def Spectral(hk, omega, sproj=None, eta=0.05):
+def Spectral(hk, omega, sproj=None, eta=0.05, lproj=None, nl=1):
 
     k_shape = hk.shape[:-2]
     nkp = np.prod(k_shape)
     nb = hk.shape[-1]
+    no = nb // (2 * nl)
+
+    # print(f'{nb} bands across {nl} layers\nwith {no} orbitals and {2} spins.')
+
 
     flat_hk = hk.reshape((nkp,nb,nb))
 
@@ -24,24 +28,33 @@ def Spectral(hk, omega, sproj=None, eta=0.05):
     else:
         ps = pauli[sproj]
 
-
     # TODO orbital projection
-    po = np.eye(nb//2)
+    po = np.eye(no)
 
-    # TODO layer projection
-    pl = np.eye(1)
+    # Layer projection
+    if not lproj:
+        pl = np.eye(nl)
+    elif lproj not in range(nl):
+        raise Exception('layer projection onto layer {lproj} is not valid for {nl} layer system')
+    else:
+        pl = np.zeros((nl, nl))
+        pl[lproj, lproj] = 1
+
 
     total_proj = np.kron(pl, np.kron(po, ps))
 
+    E, V = batched_eigh(flat_hk)
+
     flat_A = np.zeros((nkp, len(omega)))
     for ik in range(nkp):
-        H = flat_hk[ik, :, :]
+        # H = flat_hk[ik, :, :]
 
-        E, V = np.linalg.eigh(H)
+        # E, V = np.linalg.eigh(H)
 
-        G = 1/(1j*eta + omega[None,:] - E[:,None])
+        G = 1/(1j*eta + omega[None,:] - E[ik, :,None])
 
-        flat_A[ik,:] = -1 / np.pi * np.imag(np.einsum('iw, ai, ab, bi -> w',G, V.conj(), total_proj, V))
+
+        flat_A[ik,:] = -1 / np.pi * np.imag(np.einsum('iw, ai, ab, bi -> w',G, V[ik].conj(), total_proj, V[ik],  optimize=True))
         
 
 

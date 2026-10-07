@@ -35,7 +35,7 @@ class WannHam():
                     self.ndeg[15 * il + jl] = ndeg_line[jl]
 
             self.rvec = np.zeros((self.nr,3), dtype=float)
-            self.hr = np.zeros((self.nr, self.nb, self.nb), dtype=complex)
+            self.hr = np.zeros((self.nr, self.nb, self.nb), dtype=np.complex64)
 
             for ir in range(self.nr):
                 for ia in range(self.nb):
@@ -54,6 +54,41 @@ class WannHam():
 
         exp = np.exp(-1j * flat_k @ self.rvec.T)
 
-        flat_hk = np.einsum('rab, kr -> kab', self.hr, exp)
+        flat_hk = np.einsum('rab, kr, r -> kab', self.hr, exp, 1 / self.ndeg, optimize=True)
 
         return flat_hk.reshape(original_shape[:-1] + (self.nb, self.nb,))
+
+    def to_finite(self, layers = 5, axes = 2):
+
+        r_plane = self.rvec[:, :2]
+
+        u, idx = np.unique(r_plane, axis=0, return_inverse=True)
+
+        new_hr = np.zeros((u.shape[0], self.nb * layers, self.nb * layers), dtype=np.complex64)
+        new_rvec = np.hstack((u, np.zeros((u.shape[0], 1))))
+
+        new_ndeg = np.zeros((u.shape[0]))
+
+        for ri in range(len(idx)):
+            hr_idx = idx[ri]
+
+            z = self.rvec[ri][2]
+
+            if z < layers and z > -layers:
+                new_hr[hr_idx, :, :] += np.kron(
+                    np.eye(layers,k=int(z)),
+                    self.hr[ri, :, :] 
+                )
+            
+            if z == 0:
+                new_ndeg[hr_idx] = self.ndeg[ri]
+
+            
+        
+        self.nb = self.nb * layers
+        self.nr = new_rvec.shape[0]
+        self.rvec = new_rvec
+        self.ndeg = new_ndeg
+
+        self.hr = new_hr
+

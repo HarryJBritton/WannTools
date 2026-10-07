@@ -48,12 +48,6 @@ T, O = np.meshgrid(kpath.time, omega - FERMI, indexing='ij')
 
 ax.pcolormesh(T, O, A, cmap='bwr', vmin=-1, vmax=1)
 
-# for band_index in range(eval.shape[-1]):
-#     axs[1].plot(
-#         kpath.time,
-#         eval[:,band_index],
-#     )
-
 ax.set_xticks(
     ticks=kpath.time_labels[0],
     labels=kpath.time_labels[1]

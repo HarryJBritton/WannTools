@@ -1,6 +1,6 @@
 import numpy as np
 
-def batched_eigh(A, chunk_size=128):
+def batched_eigh(A, chunk_size=256):
     n = A.shape[0]
 
     eigenvalues = np.empty((n, A.shape[1]), dtype=A.real.dtype)
@@ -16,3 +16,4 @@ def batched_eigh(A, chunk_size=128):
         eigenvectors[i:j] = v
 
     return eigenvalues, eigenvectors
+

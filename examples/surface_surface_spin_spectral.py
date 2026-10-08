@@ -6,7 +6,9 @@ import matplotlib.pyplot as plt
 
 
 FERMI = 8.0859948861
-NL =20
+NL = 10
+LP = 0
+SP = 'z'
 
 # TODO
 # 1. load the nnkp file
@@ -59,4 +61,4 @@ fig, ax = plt.subplots()
 ax.pcolormesh(karea.k[:,:,0], karea.k[:,:,1], A[:,:,0], cmap='bwr', vmin=-.2, vmax=.2)
 ax.set_aspect('equal')
 
-plt.show()
+plt.savefig('data/out/surface_spec.pdf')

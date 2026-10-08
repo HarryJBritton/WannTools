@@ -19,8 +19,8 @@ class WannHam():
         abs_path = os.getcwd() + '/' + self.file
         if not os.path.exists(abs_path):
             raise Exception(f'hr file at {abs_path} does not exist')
-        else:
-            print(f'Reading hr from {self.file}')
+        # else:
+        #     print(f'Reading hr from {self.file}')
 
         with open(abs_path) as f:
             f.readline() # read meta data

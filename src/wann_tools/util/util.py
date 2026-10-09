@@ -7,7 +7,7 @@ def batched_eigh(A, chunk_size=256):
     eigenvectors = np.empty_like(A)
 
     for i in range(0, n, chunk_size):
-        print(f'Starting batch {i // chunk_size}')
+        # print(f'Starting batch {i // chunk_size}')
         j = min(i + chunk_size, n)
 
         w, v = np.linalg.eigh(A[i:j])

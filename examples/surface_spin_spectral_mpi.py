@@ -1,11 +1,13 @@
 from mpi4py import MPI
+import os
 
 from wann_tools.kspace import KArea
 from wann_tools.wannham import WannHam
 from wann_tools.spectral import Spectral
 
 import numpy as np
-import matplotlib.pyplot as plt
+import gc
+
 
 # MPI
 comm = MPI.COMM_WORLD
@@ -14,24 +16,30 @@ size = comm.Get_size()
 
 # Parameters
 FERMI = 8.0859948861
-NL = 30
+NL = 50
 LP = 0
 SP = 'x'
+CHUNK_SIZE = 10
+NK=20
+
+VERBOSE = True
 
 # TODO
-# 1. load the nnkp file
+# 1. load the nnkp 
 
 # Load hr
-if rank == 0:
+if rank == 0 and VERBOSE:
     print('='*25)
     print('Loading hr')
 
+# Completed for every rank
 ham = WannHam('data/in/wannier90_hr.dat')
 
-if rank == 0:
+if rank == 0 and VERBOSE:
     print('='*25)
     print('building slab Hamiltonian...')
 
+# Completed for every rank
 ham.to_finite(
     layers=NL,
 )
@@ -43,84 +51,93 @@ bvec =  np.array([
     [0.0000000,   0.0000000,   0.4839548]])
 
 
+# ===================
+# Build the k-space
+# ===================
+
 # make k space
-if rank == 0:
+if rank == 0 and VERBOSE:
     print('='*25)
     print('Constructing K structure...')
 
-karea = KArea(
-    bvec=bvec,
-    num_per_vector=100
+karea = KArea(bvec=bvec, num_per_vector=NK)
+kgrid = karea.k
+
+# Flatten only the k coordinates, not the Hamiltonians.
+kpoints = kgrid.reshape(-1, 3)
+n_k = len(kpoints)
+
+omega = np.array([FERMI + 0.03])
+
+# ===================
+# Chunk the k-space
+# ===================
+
+local_indices = np.arange(rank, n_k, size)
+local_A = np.empty((len(local_indices),), dtype=np.float64)
+
+for batch_start in range(0, len(local_indices), CHUNK_SIZE):
+    indices = local_indices[
+        batch_start:batch_start + CHUNK_SIZE
+    ]
+
+    # get k
+    k_chunk = kpoints[indices]
+    # FT
+    hk_chunk = ham.ft(k_chunk)
+
+    print(
+        f'rank {rank} of {size}: chunk {batch_start//CHUNK_SIZE} has size {hk_chunk.nbytes / (1024.0**3)} GB'
+    )
+
+    # get A
+    A_chunk = Spectral(
+        hk=hk_chunk,
+        omega=omega,
+        sproj=SP,
+        lproj=LP,
+        nl=NL,
+        eta=0.01,
+    )
+    # Add to this rank's Spectral array
+    local_A[batch_start:batch_start + len(indices)] = (
+        np.asarray(A_chunk).reshape(len(indices), -1)[:, 0]
+    )
+
+    del hk_chunk, A_chunk, k_chunk
+    gc.collect()
+
+# Save only this rank's results and their global indices.
+np.savez(
+    f"data/tmp/spectral_rank_{rank}.npz",
+    indices=local_indices,
+    A=local_A,
 )
-
-local_k = karea.mpi_split(rank, size)
-
-# ====
-# FT
-# ====
-
-comm.Barrier() # All threads stop here until they are all here
-
-if rank == 0:
-    print('='*25)
-    print('beginning Fourier transform...')
-
-
-t0 = MPI.Wtime()
-
-local_ham_k = ham.ft(local_k)
 
 comm.Barrier()
 
 if rank == 0:
-    print(f'Fourier transform: {MPI.Wtime() - t0:.3f} s')
 
-# =================
-# Spectral Function
-# =================
+    # Reconstruct the map without gathering hk or eigenvectors.
+    A_flat = np.empty(n_k, dtype=np.float64)
 
-omega = np.array([FERMI+0.03])
+    for r in range(size):
+        saved = np.load(f"data/tmp/spectral_rank_{r}.npz")
+        A_flat[saved["indices"]] = saved["A"]
+        saved.close()
 
-local_A = Spectral(
-    hk=local_ham_k,
-    omega=omega,
-    sproj=SP,
-    lproj=LP,
-    nl=NL,
-    eta=0.01)
+    A = A_flat.reshape(kgrid.shape[:2])
 
-recv_counts = counts * nky * len(omega)
-displs = np.zeros(size, dtype=int)
-displs[1:] = np.cumsum(recv_counts[:-1])
+    import matplotlib.pyplot as plt
 
-
-if rank == 0:
-    A_flat = np.empty(
-        nkx * nky * len(omega),
-        dtype=local_A.dtype,
-    )
-else:
-    A_flat = None
-
-
-comm.Gatherv(
-    local_A.ravel(),
-    [A_flat, recv_counts, displs, MPI.DOUBLE],
-    root=0,
-)
-
-if rank == 0:
-
-    A = A_flat.reshape(
-        nkx,
-        nky,
-        len(omega),
-    )
-
-    print('='*25)
-    print('Plotting...')
     fig, ax = plt.subplots()
-    ax.pcolormesh(karea.k[:,:,0], karea.k[:,:,1], A[:,:,0], cmap='bwr', vmin=-.2, vmax=.2)
-    ax.set_aspect('equal')
-
-    plt.savefig('data/out/surface_spec.pdf')
+    ax.pcolormesh(
+        kgrid[:, :, 0],
+        kgrid[:, :, 1],
+        A,
+        cmap="bwr",
+        vmin=-0.2,
+        vmax=0.2,
+    )
+    ax.set_aspect("equal")
+    plt.savefig("data/tmp/surface_spec.pdf")

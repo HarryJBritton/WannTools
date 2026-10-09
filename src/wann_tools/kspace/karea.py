@@ -3,14 +3,16 @@ import numpy as np
 
 class KArea:
 
-   def __init__(self, bvec, num_per_vector=20, level=0, fixed_axis=2):
-      self.npv = num_per_vector
+   def __init__(self, bvec, n1=20, n2=20, level=0, fixed_axis=2):
+      self.nk1 = n1
+      self.nk2 = n2
       self.bvec = bvec
       self.nkps = self.npv ** 2
 
-      t = np.linspace(-0.5, 0.5, self.npv)
+      t1 = np.linspace(-0.5, 0.5, self.n1)
+      t2 = np.linspace(-0.5, 0.5, self.n2)
 
-      T1, T2 = np.meshgrid(t,t,indexing='ij')
+      T1, T2 = np.meshgrid(t1,t2,indexing='ij')
       F = np.ones_like(T1) * level
 
       if fixed_axis == 0:
@@ -54,7 +56,7 @@ class KArea:
          f'k rows {local_start}:{local_start + local_count}'
       )
 
-      return self.k[local_start:local_start + local_count, :, :].copy()
+      return self.k[local_start:local_start + local_count, :, :].copy(), counts
 
       
 

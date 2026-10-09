@@ -1,12 +1,29 @@
-import numpy as np
-from wann_tools.util import batched_eigh
+from wann_tools.calculations.base import ResourceEstimate
 
-pauli = {
-    '0': np.array([[1,0],[0,1]], dtype=np.complex64),
-    'x': np.array([[0,1],[1,0]], dtype=np.complex64),
-    'y': np.array([[0,-1j],[1j,0]], dtype=np.complex64),
-    'z': np.array([[1,0],[0,-1]], dtype=np.complex64),
-}
+from .base import Calculation
+from .registry import register_calculation
+
+import numpy as np
+
+@register_calculation
+class SpectralCalculation(Calculation):
+
+    pauli = {
+        '0': np.array([[1,0],[0,1]], dtype=np.complex64),
+        'x': np.array([[0,1],[1,0]], dtype=np.complex64),
+        'y': np.array([[0,-1j],[1j,0]], dtype=np.complex64),
+        'z': np.array([[1,0],[0,-1]], dtype=np.complex64),
+    }
+
+    def validate(self, config: dict, context) -> None:
+        ...
+    
+    def estimate_resources(self, config: dict, context) -> ResourceEstimate:
+        ...
+    
+    def run(self, config: dict, context, executor):
+        ...
+
 
 def Spectral(hk, omega, sproj=None, eta=0.05, lproj=None, nl=1):
 
@@ -43,7 +60,7 @@ def Spectral(hk, omega, sproj=None, eta=0.05, lproj=None, nl=1):
 
     total_proj = np.kron(pl, np.kron(po, ps))
 
-    E, V = batched_eigh(flat_hk)
+    E, V = np.linalg.eigh(flat_hk)
 
     flat_A = np.zeros((nkp, len(omega)))
     for ik in range(nkp):

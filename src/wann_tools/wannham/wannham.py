@@ -10,8 +10,9 @@ class WannHam():
     #     self.nr = None
     #     self.ndeg = None
 
-    def __init__(self, file):
+    def __init__(self, file, dtype):
         self.file = file
+        self.dtype=dtype
         self.load_hr()
 
     def load_hr(self):
@@ -35,7 +36,7 @@ class WannHam():
                     self.ndeg[15 * il + jl] = ndeg_line[jl]
 
             self.rvec = np.zeros((self.nr,3), dtype=float)
-            self.hr = np.zeros((self.nr, self.nb, self.nb), dtype=np.complex64)
+            self.hr = np.zeros((self.nr, self.nb, self.nb), dtype=self.dtype)
 
             for ir in range(self.nr):
                 for ia in range(self.nb):
@@ -64,7 +65,7 @@ class WannHam():
 
         u, idx = np.unique(r_plane, axis=0, return_inverse=True)
 
-        new_hr = np.zeros((u.shape[0], self.nb * layers, self.nb * layers), dtype=np.complex64)
+        new_hr = np.zeros((u.shape[0], self.nb * layers, self.nb * layers), dtype=self.dtype)
         new_rvec = np.hstack((u, np.zeros((u.shape[0], 1))))
 
         new_ndeg = np.zeros((u.shape[0]))

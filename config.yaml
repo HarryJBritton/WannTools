@@ -1,24 +1,23 @@
 hamiltonian:
   hr_file: data/in/wannier90_hr.dat
   nnkp_file: data/in/PdBi2.nnkp
-
+  dtype: 64
   finite:
     enabled: true
     layers: 10
 
-
 kspace:
-  type: path
+  type: surface
 
-  path:
-    nps: 20
-    path: [G, M, X]
+  # path:
+  #   nps: 20
+  #   path: [G, M, X]
 
-  # surface:
-  #   n1: 50
-  #   n2: 50
-  #   level: 0
-  #   fixed_axis: 2
+  surface:
+    n1: 60
+    n2: 60
+    level: 0
+    fixed_axis: 2
 
 calculation:
   type: spectral

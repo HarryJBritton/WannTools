@@ -1,5 +1,5 @@
 from wann_tools.wannham import WannHam
-from wann_tools.kspace import KPath
+from wann_tools.kspace import KPath, load_nnkp
 from wann_tools.spectral import Spectral
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,18 +7,16 @@ import matplotlib.pyplot as plt
 
 FERMI = 8.0859948861
 
-# TODO
-# 1. load the nnkp file
+# TODOload the nnkp file
 
 # Load hr
-ham = WannHam('data/in/wannier90_hr.dat')
+ham = WannHam(
+    'data/in/wannier90_hr.dat',
+    np.complex64)
 
 
 # Load nnkp
-bvec =  np.array([
-    [1.8688832,   0.0000000,   0.0000000],
-    [0.0000000,  1.8688832,   0.0000000],
-    [0.0000000,   0.0000000,   0.4839548]])
+bvec =  load_nnkp('data/in/PdBi2.nnkp')
 
 
 # make k space

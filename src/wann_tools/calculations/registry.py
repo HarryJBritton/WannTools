@@ -1,3 +1,6 @@
+from wann_tools.calculations.base import Calculation
+
+
 CALCULATIONS = {}
 
 def register_calculation(cls):
@@ -11,9 +14,9 @@ def register_calculation(cls):
     CALCULATIONS[name] = cls
     return cls
 
-def get_calcualtion(name):
+def get_calculation(name) -> Calculation:
     try:
-        return CALCULATIONS[name]
+        return CALCULATIONS[name]()
     except KeyError:
         available = ", ".join(sorted(CALCULATIONS))
         raise ValueError(

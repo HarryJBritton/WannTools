@@ -3,14 +3,14 @@ import numpy as np
 
 class KArea:
 
-   def __init__(self, bvec, n1=20, n2=20, level=0, fixed_axis=2):
+   def __init__(self, bvec, n1=20, n2=20, level: float=0, fixed_axis=2):
       self.nk1 = n1
       self.nk2 = n2
       self.bvec = bvec
-      self.nkps = self.npv ** 2
+      self.nkps = self.nk1 * self.nk2
 
-      t1 = np.linspace(-0.5, 0.5, self.n1)
-      t2 = np.linspace(-0.5, 0.5, self.n2)
+      t1 = np.linspace(-0.5, 0.5, self.nk1)
+      t2 = np.linspace(-0.5, 0.5, self.nk2)
 
       T1, T2 = np.meshgrid(t1,t2,indexing='ij')
       F = np.ones_like(T1) * level

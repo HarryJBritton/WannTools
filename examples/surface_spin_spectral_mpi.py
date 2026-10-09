@@ -24,8 +24,7 @@ NK=20
 
 VERBOSE = True
 
-# TODO
-# 1. load the nnkp 
+# TODO: load the nnkp 
 
 # Load hr
 if rank == 0 and VERBOSE:

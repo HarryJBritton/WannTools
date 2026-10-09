@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Union, Type
 
-from wann_tools.calculations.base import Calculation
+import numpy as np
+
 import yaml
 
 
@@ -28,6 +29,7 @@ class FiniteHamiltonianConfig:
 class HamiltonianConfig:
     hr_file: Path
     nnkp_file: Path
+    dtype: int = 64
     finite: FiniteHamiltonianConfig = field(
         default_factory=FiniteHamiltonianConfig
     )
@@ -37,6 +39,8 @@ class HamiltonianConfig:
             raise ValueError("hamiltonian.hr_file is required")
         if not str(self.nnkp_file):
             raise ValueError("hamiltonian.nnkp_file is required")
+        if self.dtype not in (64,128):
+            raise ValueError(f"Invalid complex datatype: {self.dtype}. It must be either 64 or 128.")
         self.finite.validate()
 
 

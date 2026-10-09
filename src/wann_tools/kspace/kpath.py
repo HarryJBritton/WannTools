@@ -5,7 +5,7 @@ from .space_groups import Space_Groups
 
 class KPath:
 
-    def __init__(self, path, bvec, num_per_section=30, space_group='160'):
+    def __init__(self, path, bvec, num_per_section=30, space_group='139'):
       self.nps = num_per_section
       self.bvec = bvec
 

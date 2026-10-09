@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from wann_tools.config import AppConfig
+
 @dataclass
 class ResourceEstimate:
     # Memory required by one worker, not the entire job.
@@ -25,19 +27,19 @@ class Calculation(ABC):
     name: str
 
     @abstractmethod
-    def validate(self, config: dict, context) -> None:
+    def validate(self, config: AppConfig, context) -> None:
         """Check calculation-specific configuration."""
 
     @abstractmethod
     def estimate_resources(
         self,
-        config: dict,
+        config: AppConfig,
         context,
     ) -> ResourceEstimate:
         """Estimate resources without running the full calculation."""
         ...
 
     @abstractmethod
-    def run(self, config: dict, context, executor):
+    def run(self, config: AppConfig, context, executor):
         """Execute the calculation using the selected backend."""
         ...

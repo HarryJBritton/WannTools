@@ -1,2 +1,2 @@
-from wann_tools.calculations.spectral import SpectralCalculation
+from wann_tools.calculations.spectral import SpectralCalculation # Registers spectral
 

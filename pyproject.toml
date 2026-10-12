@@ -9,11 +9,17 @@ description = "Tools for Wannier Hamiltonians and other Hamiltonians"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
-
 dependencies = [
-    # "numpy>=2.0",
-    # "scipy>=1.14",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "PyYAML",
+    "mpi4py"
 ]
+
+[project.scripts]
+wannrun = "wann_tools.cli:main"
+
 
 [project.optional-dependencies]
 dev = [

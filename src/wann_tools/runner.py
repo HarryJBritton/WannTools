@@ -2,7 +2,6 @@ from wann_tools.calculations.base import Calculation
 from wann_tools.config import AppConfig, load_config
 from wann_tools.wannham import WannHam
 from wann_tools.kspace import KPath, KArea, load_nnkp
-from wann_tools.calculations import spectral  # Registers spectral
 from wann_tools.calculations.registry import get_calculation
 from wann_tools.context import CalculationContext
 from wann_tools.executor import build_executor

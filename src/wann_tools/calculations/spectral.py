@@ -6,6 +6,10 @@ from .registry import register_calculation
 
 import numpy as np
 import matplotlib.pyplot as plt
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 @register_calculation
 class SpectralCalculation(Calculation):
@@ -20,27 +24,108 @@ class SpectralCalculation(Calculation):
     def run(self, config: AppConfig, context, executor):
         settings = config.calculation.spectral
 
-        ham = context.hamiltonian
-        kspace = context.kpoints
+        # Flatten the k-grid while preserving its original shape.
+        k_grid = context.kpoints.k
+        original_shape = k_grid.shape[:-1]
+        flat_k = k_grid.reshape(-1, 3)
 
-        hk = ham.ft(kspace.k)
-        omega = np.asarray(settings.energies, dtype=float)
+        nk = len(flat_k)
+        chunk_size = config.execution.chunk_size
+        n_chunks = (nk + chunk_size - 1) // chunk_size
 
-        nl = (
-            config.hamiltonian.finite.layers
-            if config.hamiltonian.finite.enabled
-            else context.finite_layers or 1
+        # Optional debug limit for quick smoke tests.
+        if (
+            config.debug.enabled
+            and config.debug.limit_chunks is not None
+        ):
+            n_chunks = min(n_chunks, config.debug.limit_chunks)
+            logger.warning(
+                "Debug chunk limit active: processing %d chunks; "
+                "results will be incomplete if chunks were skipped.",
+                n_chunks,
+            )
+
+        omega = settings.omega.to_array()
+
+        def worker(chunk_id):
+            start = chunk_id * chunk_size
+            stop = min(start + chunk_size, nk)
+
+            if config.debug.enabled and config.debug.log_chunks:
+                logger.debug(
+                    "[rank %s] Starting chunk %d/%d, k-points [%d:%d]",
+                    getattr(executor, "rank", 0),
+                    chunk_id + 1,
+                    n_chunks,
+                    start,
+                    stop,
+                )
+
+            t0 = time.perf_counter()
+
+            # Transform only this chunk of k-points.
+            hk = context.hamiltonian.ft(flat_k[start:stop])
+
+            nl = (
+                config.hamiltonian.finite.layers
+                if config.hamiltonian.finite.enabled
+                else 1
+            )
+
+            chunk_result = Spectral(
+                hk=hk,
+                omega=omega,
+                sproj=settings.spin_projection,
+                lproj=settings.layer_projection,
+                nl=nl,
+                eta=settings.eta,
+            )
+
+            if (
+                config.debug.enabled
+                and config.debug.log_chunk_timing
+            ):
+                logger.debug(
+                    "[rank %s] Finished chunk %d/%d in %.3f s",
+                    getattr(executor, "rank", 0),
+                    chunk_id + 1,
+                    n_chunks,
+                    time.perf_counter() - t0,
+                )
+
+            return chunk_result
+
+        # This is where the executor actually distributes the work.
+        chunk_results = executor.map_chunks(worker, n_chunks)
+
+        # MPIExecutor returns the complete list only on rank 0.
+        if getattr(executor, "rank", 0) != 0:
+            return None
+
+        if not chunk_results:
+            raise RuntimeError("No spectral chunks were computed")
+
+        # Reassemble results in k-point order.
+        flat_result = np.concatenate(chunk_results, axis=0)
+
+        # A limited debug run intentionally has fewer k-points.
+        if flat_result.shape[0] != nk:
+            logger.warning(
+                "Partial result: computed %d of %d k-points",
+                flat_result.shape[0],
+                nk,
+            )
+            return flat_result
+
+        result = flat_result.reshape(
+            original_shape + (len(omega),)
         )
 
-        result = Spectral(
-            hk=hk,
-            omega=omega,
-            sproj=settings.spin_projection,
-            lproj=settings.layer_projection,
-            nl=nl,
-            eta=settings.eta,
-        )
+        self._write_outputs(config, context, result, omega)
+        return result
 
+
+    def _write_outputs(self, config, context, result, omega):
         output_dir = config.output.directory
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -49,17 +134,16 @@ class SpectralCalculation(Calculation):
             np.save(output_dir / "energies.npy", omega)
 
         if config.output.plot:
-            self._plot_surface(config, kspace, result)
+            if config.kspace.type == 'surface':
+                self._plot_surface(config, context.kpoints, result)
 
-        return result
+            if config.kspace.type == 'path':
+                self._plot_path(config, context.kpoints, result, omega)
+
 
     @staticmethod
     def _plot_surface(config, kspace, result):
-        if config.kspace.type != "surface":
-            raise NotImplementedError(
-                "Spectral plotting is currently implemented "
-                "only for surface k-space."
-            )
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
         fig, ax = plt.subplots()
         mesh = ax.pcolormesh(
@@ -79,6 +163,47 @@ class SpectralCalculation(Calculation):
             bbox_inches="tight",
         )
         plt.close(fig)
+
+
+    @staticmethod
+    def _plot_path(config, kspace, result, omega):
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
+        K, O = np.meshgrid(kspace.length, omega, indexing='ij')
+
+        
+
+        
+        fig, ax = plt.subplots(figsize=(10,8))
+
+        if config.calculation.spectral.spin_projection == '0':
+            cmap= 'bone'
+            vmin= 0
+            vmax= result.max()
+        else:
+            cmap= 'bwr'
+            vmin= -0.5
+            vmax= 0.5
+
+        mesh = ax.pcolormesh(
+            K,
+            O - 8.11,
+            result[:, :],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+        ax.set_ylabel('Energy (meV)')
+        ax.set_xlabel(r'$k_x$ ($\AA^{-1}$)')
+        fig.colorbar(mesh, ax=ax, label="Spectral function")
+
+        fig.savefig(
+            config.output.directory / "path_spec.png",
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
 
 
 
@@ -128,17 +253,11 @@ def Spectral(hk, omega, sproj=None, eta=0.05, lproj=None, nl=1):
 
     flat_A = np.zeros((nkp, len(omega)))
     for ik in range(nkp):
-        # H = flat_hk[ik, :, :]
-
-        # E, V = np.linalg.eigh(H)
 
         G = 1/(1j*eta + omega[None,:] - E[ik, :,None])
 
-
         flat_A[ik,:] = -1 / np.pi * np.imag(np.einsum('iw, ai, ab, bi -> w',G, V[ik].conj(), total_proj, V[ik],  optimize=True))
         
-
-
     return flat_A.reshape(k_shape+(len(omega),))
 
 

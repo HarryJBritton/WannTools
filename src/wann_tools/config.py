@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
+from doctest import debug
+from gc import enable
 from pathlib import Path
 from typing import Any, Literal, Union, Type
+from webbrowser import get
 
 import numpy as np
 
@@ -129,21 +132,77 @@ class KSpaceConfig:
 # TODO: allow for energy range for when path is used
 
 @dataclass
+class OmegaConfig:
+    mode: str = "levels"
+    levels: list[float] = field(default_factory=list)
+    lower: float | None = None
+    upper: float | None = None
+    steps: int | None = None
+
+    def validate(self):
+        if self.mode == "levels":
+            if not self.levels:
+                raise ValueError(
+                    "omega.levels must contain at least one energy."
+                )
+
+        elif self.mode == "range":
+            if self.lower is None or self.upper is None:
+                raise ValueError(
+                    "omega.lower and omega.upper are required "
+                    "when mode='range'."
+                )
+
+            if self.upper < self.lower:
+                raise ValueError(
+                    "omega.upper must be greater than or equal "
+                    "to omega.lower."
+                )
+
+            if self.steps is None or self.steps < 2:
+                raise ValueError(
+                    "omega.steps must be at least 2."
+                )
+
+        else:
+            raise ValueError(
+                "omega.mode must be 'levels' or 'range'."
+            )
+
+    def to_array(self):
+        """Return the configured energies as a NumPy array."""
+        import numpy as np
+
+        self.validate()
+
+        if self.mode == "levels":
+            return np.asarray(self.levels, dtype=float)
+
+        return np.linspace(
+            self.lower,
+            self.upper,
+            self.steps,
+        )
+
+@dataclass
 class SpectralConfig:
-    energies: list[float]
+    omega: OmegaConfig = field(default_factory=OmegaConfig)
     eta: float = 0.01
     spin_projection: str | None = None
     layer_projection: int | None = None
 
     def validate(self, layers: int | None) -> None:
-        if not self.energies:
-            raise ValueError("spectral.energies cannot be empty")
+
+        self.omega.validate()
+        
         if self.eta <= 0:
             raise ValueError("spectral.eta must be positive")
+        
         if self.spin_projection not in (None, "0", "x", "y", "z"):
             raise ValueError(
                 "spin_projection must be one of: null, '0', 'x', 'y', 'z'"
             )
+        
         if self.layer_projection is not None:
             if self.layer_projection < 0:
                 raise ValueError("layer_projection cannot be negative")
@@ -202,7 +261,24 @@ class OutputConfig:
     format: str = "pdf"
 
 
+@dataclass
+class DebugConfig:
+    enabled: bool = False
+    log_level: str = "INFO"
+    log_chunks: bool = True
+    log_chunk_timing: bool = True
+    limit_chunks: int | None = None
 
+    def validate(self) -> None:
+        if self.log_level.upper() not in {
+            "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+        }:
+            raise ValueError(f"Invalid log level: {self.log_level}")
+
+        if self.limit_chunks is not None and self.limit_chunks < 1:
+            raise ValueError("debug.limit_chunks must be positive")
+
+        
 @dataclass
 class AppConfig:
     hamiltonian: HamiltonianConfig
@@ -210,6 +286,7 @@ class AppConfig:
     calculation: CalculationConfig
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    debug: DebugConfig = field(default_factory=DebugConfig)
 
     def validate(self) -> None:
         self.hamiltonian.validate()
@@ -225,6 +302,7 @@ class AppConfig:
         )
         self.calculation.validate(layers)
         self.execution.validate()
+        self.debug.validate()
 
 
 def _build_config(raw: dict[str, Any]) -> AppConfig:
@@ -235,6 +313,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
 
         k_raw = raw["kspace"]
         c_raw = raw["calculation"]
+        spectral_raw = c_raw.get('spectral', {})
         e_raw = raw.get("execution", {})
         o_raw = raw.get("output", {})
 
@@ -264,8 +343,15 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         )
 
         spectral = (
-            SpectralConfig(**c_raw["spectral"])
-            if "spectral" in c_raw else None
+            SpectralConfig(
+                omega=OmegaConfig(**spectral_raw['omega']),
+                eta=spectral_raw.get('eta', 0.01),
+                spin_projection=spectral_raw.get("spin_projection"),
+                layer_projection=spectral_raw.get("layer_projection"),
+
+            )
+            if "spectral" in c_raw
+            else None
         )
         calculation = CalculationConfig(
             type=c_raw["type"],
@@ -277,12 +363,15 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             o_raw["directory"] = Path(o_raw["directory"])
         output = OutputConfig(**o_raw)
 
+        debug = DebugConfig(**raw.get("debug", {}))
+
         config = AppConfig(
             hamiltonian=hamiltonian,
             kspace=kspace,
             calculation=calculation,
             execution=execution,
             output=output,
+            debug=debug,
         )
         config.validate()
         return config

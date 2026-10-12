@@ -1,11 +1,26 @@
 
 import argparse
 import sys
+import logging
 
 from wann_tools.config import load_config
 from wann_tools.runner import run
 from wann_tools.estimator import estimate
 
+
+def configure_logging(config):
+    level = (
+        config.debug.log_level.upper()
+        if config.debug.enabled
+        else "INFO"
+    )
+
+    logging.basicConfig(
+        level=getattr(logging, level),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+        force=True,
+    )
 
 def main():
     parser = argparse.ArgumentParser(
@@ -32,6 +47,7 @@ def main():
 
     try:
         config = load_config(args.config)
+        configure_logging(config)
 
         if args.command == "validate":
             print(f"Configuration is valid: {args.config}")

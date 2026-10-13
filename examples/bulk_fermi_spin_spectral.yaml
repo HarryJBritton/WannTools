@@ -1,0 +1,35 @@
+hamiltonian:
+  hr_file: data/in/wannier90_hr.dat
+  nnkp_file: data/in/PdBi2.nnkp
+  # dtype: 64
+
+kspace:
+  type: surface
+
+  surface:
+    n1: 100
+    n2: 100
+    level: 0
+    fixed_axis: 2
+
+calculation:
+  type: spectral
+
+  spectral:
+    omega:
+      mode: levels
+      levels: [8.0859948861]
+    eta: 0.01
+    spin_projection: x
+
+execution:
+  backend: serial
+  ranks: 1
+  chunk_size: 100
+
+output:
+  directory: data/out
+  save_data: true
+  plot: true
+  format: pdf
+

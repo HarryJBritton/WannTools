@@ -53,8 +53,8 @@ def main():
             print(f"Configuration is valid: {args.config}")
 
         elif args.command == "estimate":
-            report = estimate(config)
-            print(report)
+            estimate(config)
+            #print(report)
 
         elif args.command == "run":
             result = run(config)

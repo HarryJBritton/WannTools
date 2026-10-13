@@ -320,6 +320,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         hamiltonian = HamiltonianConfig(
             hr_file=Path(h_raw["hr_file"]),
             nnkp_file=Path(h_raw["nnkp_file"]),
+            dtype=h_raw["dtype"],
             finite=FiniteHamiltonianConfig(**finite_raw),
         )
 

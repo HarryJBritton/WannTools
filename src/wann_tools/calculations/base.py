@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from wann_tools.config import AppConfig
+from wann_tools.context import CalculationContext
 
 @dataclass
 class ResourceEstimate:
@@ -14,10 +15,12 @@ class ResourceEstimate:
 
     # Optional calibrated wall-clock estimate.
     estimated_seconds: float | None = None
-
     # Human-readable assumptions and warnings.
     assumptions: list[str] | None = None
 
+    fixed_memory_bytes_per_worker: int = 0
+    working_memory_bytes_per_worker: int = 0
+    overhead_margin: float = 0.20
 
 
 class Calculation(ABC):
@@ -34,12 +37,12 @@ class Calculation(ABC):
     def estimate_resources(
         self,
         config: AppConfig,
-        context,
+        context: CalculationContext,
     ) -> ResourceEstimate:
         """Estimate resources without running the full calculation."""
         ...
 
     @abstractmethod
-    def run(self, config: AppConfig, context, executor):
+    def run(self, config: AppConfig, context: CalculationContext, executor):
         """Execute the calculation using the selected backend."""
         ...

@@ -1,0 +1,49 @@
+hamiltonian:
+  hr_file: data/in/wannier90_hr.dat
+  nnkp_file: data/in/PdBi2.nnkp
+  dtype: 64
+  finite:
+    enabled: true
+    layers: 50
+
+kspace:
+  type: surface
+
+  surface:
+    n1: 200
+    n2: 200
+    level: 0
+    fixed_axis: 2
+
+calculation:
+  type: spectral
+
+  spectral:
+    omega:
+      mode: levels
+      levels: [8.0859948861]
+    eta: 0.01
+    spin_projection: y
+    layer_projection: 0
+
+execution:
+  backend: mpi
+  ranks: 4
+  chunk_size: 80
+  # TODO Optional resource constraints
+  memory_limit_gb: 64
+  time_limit_hours: null
+
+output:
+  directory: data/out
+  save_data: true
+  plot: true
+  format: pdf
+
+
+debug:
+  enabled: true
+  log_level: DEBUG
+  log_chunks: true
+  log_chunk_timing: true
+  # limit_chunks: 10

@@ -10,8 +10,11 @@ def build_hamiltonian(config: AppConfig):
 
     data_types = {'64': np.complex64,
                   '128': np.complex128}
+
+
     ham = WannHam(
         str(config.hamiltonian.hr_file),
+        str(config.hamiltonian.nnkp_file),
         dtype=data_types[str(config.hamiltonian.dtype)],
     )
 

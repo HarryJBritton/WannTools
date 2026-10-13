@@ -1,5 +1,6 @@
 from wann_tools.calculations.base import ResourceEstimate
 from wann_tools.config import AppConfig
+from wann_tools.context import CalculationContext
 
 from .base import Calculation
 from .registry import register_calculation
@@ -18,9 +19,69 @@ class SpectralCalculation(Calculation):
     def validate(self, config: AppConfig, context) -> None:
         ...
     
-    def estimate_resources(self, config: AppConfig, context) -> ResourceEstimate:
-        ...
-    
+    def estimate_resources(self, config: AppConfig, context: CalculationContext) -> ResourceEstimate:
+
+        settings = config.calculation.spectral
+
+        if settings is None:
+            raise ValueError(
+                'Spectral settings are required for spectral calculation.'
+            )
+
+        n_kpoints = context.total_kpoints
+        n_bands = context.hamiltonian_dimension
+        chunk_size = config.execution.chunk_size
+
+        omega = settings.omega.to_array()
+        n_energies = len(omega)
+
+        dtype = np.dtype(context.hamiltonian_dtype)
+        matrix_bytes = n_bands * n_bands * dtype.itemsize
+
+        matrix_working_bytes = (
+            3 * min(chunk_size, n_kpoints) * matrix_bytes
+        )
+
+        eigenvalue_bytes = (
+            min(chunk_size, n_kpoints) * n_bands * 8
+        )
+
+        output_bytes = (
+            min(chunk_size, n_kpoints) * n_energies * 8
+        )
+
+        fixed_bytes = context.hamiltonian_storage_bytes
+
+        working_bytes = (
+            matrix_working_bytes
+            + eigenvalue_bytes
+            + output_bytes
+        )
+
+        subtotal = fixed_bytes + working_bytes
+        peak_bytes = int(subtotal * (1.0 + 0.20))
+
+
+        return ResourceEstimate(
+            peak_memory_bytes_per_worker=peak_bytes,
+            total_work_items=n_kpoints,
+            fixed_memory_bytes_per_worker=fixed_bytes,
+            working_memory_bytes_per_worker=working_bytes,
+            overhead_margin=0.20,
+            assumptions=[
+                "Fixed Hamiltonian storage is measured from numerical arrays.",
+                "Working memory is estimated from chunk dimensions.",
+                "A 20% margin is applied for runtime overhead and uncertainty.",
+            ],
+        )
+
+
+
+
+
+
+
+
     def run(self, config: AppConfig, context, executor):
         settings = config.calculation.spectral
 
@@ -145,14 +206,23 @@ class SpectralCalculation(Calculation):
     def _plot_surface(config, kspace, result):
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
+        if config.calculation.spectral.spin_projection == '0':
+            cmap= 'bone'
+            vmin= 0
+            vmax= result.max()
+        else:
+            cmap= 'bwr'
+            vmin= -np.abs(result).max()
+            vmax= np.abs(result).max()
+
         fig, ax = plt.subplots()
         mesh = ax.pcolormesh(
             kspace.k[:, :, 0],
             kspace.k[:, :, 1],
             result[:, :, 0],
-            cmap="bwr",
-            vmin=-0.2,
-            vmax=0.2,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             shading="auto",
         )
         ax.set_aspect("equal")

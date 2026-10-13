@@ -10,14 +10,17 @@ class WannHam():
     #     self.nr = None
     #     self.ndeg = None
 
-    def __init__(self, file, dtype):
-        self.file = file
+    def __init__(self, hr_file, nnkp_file, dtype):
+        self.hr_file = hr_file
+        self.nnkp_file = nnkp_file
+
         self.dtype=dtype
         self.load_hr()
+        self.load_nnkp()
 
     def load_hr(self):
 
-        abs_path = os.getcwd() + '/' + self.file
+        abs_path = os.getcwd() + '/' + self.hr_file
         if not os.path.exists(abs_path):
             raise Exception(f'hr file at {abs_path} does not exist')
         # else:
@@ -47,13 +50,40 @@ class WannHam():
                             float(row_data[5]) + 1j * float(row_data[6])
                         )
 
+    def load_nnkp(self):
+        abs_path = os.getcwd() + '/' + self.nnkp_file
+        if not os.path.exists(abs_path):
+            raise Exception(f'nnkp file at {abs_path} does not exist')
+
+        lvec = np.zeros((3,3), dtype=float)
+        
+        with open(abs_path) as f:
+    
+            while True: # Problematic
+    
+                line = f.readline()
+    
+                if not line:
+                    raise ValueError('No real lattice found')
+    
+                if 'begin real_lattice' in line.strip():
+                    lvec[0,:] = f.readline().split()
+                    lvec[1,:] = f.readline().split()
+                    lvec[2,:] = f.readline().split()
+                    break
+
+        self.lvec = lvec
+                        
+
     def ft(self, k):
         original_shape = k.shape
         flat_length = np.prod(original_shape[:-1])
 
         flat_k = k.reshape((flat_length,3))
 
-        exp = np.exp(-1j * flat_k @ self.rvec.T)
+        r =  self.lvec @ self.rvec.T
+
+        exp = np.exp(-1j * flat_k @ r)
 
         flat_hk = np.einsum('rab, kr, r -> kab', self.hr, exp, 1 / self.ndeg, optimize=True)
 

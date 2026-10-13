@@ -1,0 +1,34 @@
+hamiltonian:
+  hr_file: data/in/wannier90_hr.dat
+  nnkp_file: data/in/PdBi2.nnkp
+  # dtype: 64
+
+kspace:
+  type: path
+  path:
+    nps: 100
+    path: [G, M, X, G]
+
+calculation:
+  type: spectral
+
+  spectral:
+    omega:
+      mode: range
+      lower: 7.08
+      upper: 9.08
+      steps: 200
+    eta: 0.01
+    spin_projection: y
+
+execution:
+  backend: serial
+  ranks: 1
+  chunk_size: 100
+
+output:
+  directory: data/out
+  save_data: true
+  plot: true
+  format: pdf
+

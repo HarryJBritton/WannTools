@@ -21,15 +21,16 @@ class CalculationContext:
     finite_layers: int | None = None
     orbitals_per_cell: int | None = None
 
+    hamiltonian_storage_bytes: int = 0
+
 
 def build_context(config: AppConfig, ham: Any, kspace: Any):
 
     # Hamiltonian metadata
     hamiltonian_dimension = ham.nb
     # Use the actual dtype if the Hamiltonian exposes it.
-    hamiltonian_dtype = str(
-        getattr(ham, "dtype", np.dtype(np.complex128))
-    )
+    hamiltonian_dtype = ham.dtype
+    
 
     # kspace data
     kpoints = kspace.k
@@ -47,4 +48,16 @@ def build_context(config: AppConfig, ham: Any, kspace: Any):
             if config.hamiltonian.finite.enabled
             else None
         ),
+        hamiltonian_storage_bytes=array_storage_bytes(
+            ham.hr,
+            ham.rvec,
+            ham.ndeg,
+        ),
+    )
+
+def array_storage_bytes(*arrays) -> int:
+    return sum(
+        array.nbytes
+        for array in arrays
+        if array is not None
     )

@@ -1,17 +1,16 @@
 hamiltonian:
-  hr_file: data/in/wannier90_hr.dat
-  nnkp_file: data/in/PdBi2.nnkp
+  hr_file: data/in/3R-TaSe2_hr.dat
+  nnkp_file: data/in/3R-TaSe2.nnkp
   dtype: 64
-  finite:
-    enabled: true
-    layers: 20
+  fermi_energy: 4.1834800790
 
 kspace:
   type: path
 
   path:
-    nps: 160
-    path: [G, M]
+    nps: 200
+    path: [G, M, K, G]
+    # path: [<-Γ, K, Γ->]
 
   # surface:
   #   n1: 120
@@ -20,26 +19,35 @@ kspace:
   #   fixed_axis: 2
 
 calculation:
-  type: spectral
+  type: band
 
-  spectral:
-    omega:
-      mode: range #levels
-      # levels: [8.1159948861]
-      lower: 7.7
-      upper: 8.4
-      steps: 200
-    eta: 0.01
-    spin_projection: '0'
-    layer_projection: 0
+  band:
+    # energy_min: 0.8
+    # energy_max: 0.9
+    energy_min: -1
+    energy_max: 2
+    colour: red
+    spin_projection: y
+
+
+  # spectral:
+  #   omega:
+  #     mode: range #levels
+  #     # levels: [8.1159948861]
+  #     lower: 7.7
+  #     upper: 8.4
+  #     steps: 200
+  #   eta: 0.01
+  #   spin_projection: '0'
+  #   layer_projection: 0
 
 execution:
-  backend: mpi
-  ranks: 16
-  chunk_size: 1
-  # TODO Optional resource constraints
-  memory_limit_gb: 16
-  time_limit_hours: null
+  backend: serial
+  # ranks: 16
+  chunk_size: 160
+  # # TODO Optional resource constraints
+  # memory_limit_gb: 16
+  # time_limit_hours: null
 
 output:
   directory: data/out

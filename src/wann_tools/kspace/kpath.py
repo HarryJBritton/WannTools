@@ -5,7 +5,7 @@ from .space_groups import Space_Groups
 
 class KPath:
 
-    def __init__(self, path, bvec, num_per_section=30, space_group='139'):
+    def __init__(self, path, bvec, num_per_section=30, space_group='160'):
       self.nps = num_per_section
       self.bvec = bvec
 
@@ -57,7 +57,7 @@ class KPath:
       self.k = k
       self.length = kl
       self.time = kl / kl[-1]
-      self.time_labels = ([self.time[i * self.nps] for i in range(len(self.path))],  [self.path[i]for i in range(len(self.path))])
+      self.time_labels = ([self.time[i * self.nps] for i in range(len(self.path))])
 
 
 

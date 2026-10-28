@@ -75,13 +75,6 @@ class SpectralCalculation(Calculation):
             ],
         )
 
-
-
-
-
-
-
-
     def run(self, config: AppConfig, context, executor):
         settings = config.calculation.spectral
 

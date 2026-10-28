@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from doctest import debug
 from gc import enable
+from multiprocessing import Value
 from pathlib import Path
 from typing import Any, Literal, Union, Type
 from webbrowser import get
@@ -11,7 +12,7 @@ import yaml
 
 
 KSpaceType = Literal['path', 'surface', 'volume']
-CalculationType = Literal['spectral']
+CalculationType = Literal['spectral', 'band']
 BackendType = Literal['serial', 'mpi']
 
 
@@ -36,6 +37,7 @@ class HamiltonianConfig:
     finite: FiniteHamiltonianConfig = field(
         default_factory=FiniteHamiltonianConfig
     )
+    fermi_energy: float = 0
 
     def validate(self) -> None:
         if not str(self.hr_file):
@@ -213,9 +215,42 @@ class SpectralConfig:
 
 
 @dataclass
+class BandConfig:
+    energy_max: float
+    energy_min: float
+
+    colour: str | None = None
+    spin_projection: str | None = None
+
+    def validate(self) -> None:
+
+        if self.energy_max <= self.energy_min:
+            raise ValueError('band.energy_max must be larger than band.energy_min')
+
+        if self.colour is not None:
+            from matplotlib.colors import CSS4_COLORS as c
+            if self.colour not in c.keys():
+                raise ValueError(
+                    f'band.colour: {self.colour!r} is not a valid colour'
+                    f'band.colour must be None or in\n{c.keys()}')
+
+        if self.spin_projection not in (None, "0", "x", "y", "z"):
+            raise ValueError(
+                "spin_projection must be one of: null, '0', 'x', 'y', 'z'"
+            )
+        
+
+        
+
+
+
+
+
+@dataclass
 class CalculationConfig:
     type: CalculationType
     spectral: SpectralConfig | None = None
+    band: BandConfig | None = None
 
     def validate(self, layers: int | None) -> None:
         if self.type == "spectral":
@@ -224,6 +259,12 @@ class CalculationConfig:
                     "calculation.spectral settings are required"
                 )
             self.spectral.validate(layers)
+        elif self.type == 'band':
+            if self.band is None:
+                raise ValueError(
+                    "calculation.band settings are required"
+                )
+            self.band.validate()
         else:
             raise ValueError(
                 f"Unsupported calculation type: {self.type!r}"
@@ -314,6 +355,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         k_raw = raw["kspace"]
         c_raw = raw["calculation"]
         spectral_raw = c_raw.get('spectral', {})
+        band_raw = c_raw.get('band', {})
         e_raw = raw.get("execution", {})
         o_raw = raw.get("output", {})
 
@@ -322,6 +364,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             nnkp_file=Path(h_raw["nnkp_file"]),
             dtype=h_raw["dtype"],
             finite=FiniteHamiltonianConfig(**finite_raw),
+            fermi_energy=h_raw["fermi_energy"],
         )
 
         path = (
@@ -354,9 +397,20 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             if "spectral" in c_raw
             else None
         )
+        band = (
+            BandConfig(
+                energy_min=band_raw.get('energy_min'),
+                energy_max=band_raw.get('energy_max'),
+                colour=band_raw.get('colour', None),
+                spin_projection=band_raw.get('spin_projection', None)
+            )
+            if 'band' in c_raw
+            else None
+        )
         calculation = CalculationConfig(
             type=c_raw["type"],
             spectral=spectral,
+            band=band,
         )
 
         execution = ExecutionConfig(**e_raw)

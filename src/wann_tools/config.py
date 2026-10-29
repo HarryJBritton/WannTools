@@ -70,6 +70,8 @@ class SurfaceConfig:
     n2: int = 50
     level: float = 0
     fixed_axis: int = 2
+    centre: str | None = None
+    width: float = 1.0
 
     def validate(self) -> None:
         if self.n1 < 1:
@@ -78,6 +80,8 @@ class SurfaceConfig:
             raise ValueError("surface.n2 must be positive")
         if self.fixed_axis not in (0,1,2):
             raise ValueError("surface.fixed_axis must be in (0, 1, 2)")
+        if self.width < 0: 
+            raise ValueError("surface.width must be positive")
 
 
 @dataclass
@@ -234,9 +238,9 @@ class BandConfig:
                     f'band.colour: {self.colour!r} is not a valid colour'
                     f'band.colour must be None or in\n{c.keys()}')
 
-        if self.spin_projection not in (None, "0", "x", "y", "z"):
+        if self.spin_projection not in (None, "0", "x", "y", "z", "all"):
             raise ValueError(
-                "spin_projection must be one of: null, '0', 'x', 'y', 'z'"
+                "spin_projection must be one of: null, '0', 'x', 'y', 'z', 'all'"
             )
         
 

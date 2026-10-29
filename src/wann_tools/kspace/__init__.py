@@ -16,7 +16,9 @@ def build_kspace(config: AppConfig):
             n1=settings.n1, # type: ignore
             n2=settings.n2, # type: ignore
             level=settings.level, # type: ignore
-            fixed_axis=settings.fixed_axis, # type: ignore
+            fixed_axis=settings.fixed_axis, # type: ignore,
+            centre=settings.centre,
+            width=settings.width,
         )
     elif config.kspace.type == 'path':
         settings = config.kspace.path

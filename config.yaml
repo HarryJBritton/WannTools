@@ -5,32 +5,33 @@ hamiltonian:
   fermi_energy: 4.1834800790
 
 kspace:
-  # type: path
-  type: surface
 
-  # path:
-    # nps: 200
+  type: path
+  path:
+    nps: 200
+    space_group: '160'
     # path: [G, M, K, G]
-    # path: [<-Γ, K, Γ->]
+    path: [<-M, K, Γ->]
 
-  surface:
-    n1: 61
-    n2: 61
-    level: 0
-    fixed_axis: 2
-    centre: K
-    width: 0.3
+  # type: surface
+  # surface:
+  #   n1: 81
+  #   n2: 81
+  #   level: 0
+  #   fixed_axis: 2
+  #   centre: K
+  #   width: 0.2
 
 calculation:
   type: band
 
   band:
-    # energy_min: 0.8
-    # energy_max: 0.9
-    energy_min: -1
-    energy_max: 2
+    energy_min: 0.85
+    energy_max: 0.9
+    # energy_min: -1
+    # energy_max: 2
     colour: red
-    spin_projection: all
+    spin_projection: z
 
 
   # spectral:
@@ -48,7 +49,9 @@ execution:
   backend: mpi
   ranks: 10
   chunk_size: 25
-  # # TODO Optional resource constraints
+
+  #  TODO Optional resource constraints
+
   # memory_limit_gb: 16
   # time_limit_hours: null
 
@@ -56,7 +59,7 @@ output:
   directory: data/out
   save_data: true
   plot: true
-  format: pdf # TODO
+  format: pdf # TODO output format 
 
 debug:
   enabled: true

@@ -1,13 +1,8 @@
 from dataclasses import dataclass, field
-from doctest import debug
-from gc import enable
-from multiprocessing import Value
 from pathlib import Path
-from typing import Any, Literal, Union, Type
-from webbrowser import get
+from typing import Any, Literal, Union, Type, cast
 
 import numpy as np
-
 import yaml
 
 
@@ -15,6 +10,9 @@ KSpaceType = Literal['path', 'surface', 'volume']
 CalculationType = Literal['spectral', 'band']
 BackendType = Literal['serial', 'mpi']
 
+# ====================
+# Hamiltonain Configs
+# ====================
 
 @dataclass
 class FiniteHamiltonianConfig:
@@ -48,12 +46,15 @@ class HamiltonianConfig:
             raise ValueError(f"Invalid complex datatype: {self.dtype}. It must be either 64 or 128.")
         self.finite.validate()
 
-
+# ====================
+# KStructure Configs
+# ====================
 
 @dataclass
 class PathConfig:
     path: list[str]
     nps: int = 100
+    space_group: str = '160'
 
     def validate(self) -> None:
         if len(self.path) < 2:
@@ -62,7 +63,7 @@ class PathConfig:
             )
         if self.nps < 1:
             raise ValueError("nps must be positive")
-
+        
 
 @dataclass
 class SurfaceConfig:
@@ -135,7 +136,6 @@ class KSpaceConfig:
 # Calcualtion Configs
 # ====================
 
-# TODO: allow for energy range for when path is used
 
 @dataclass
 class OmegaConfig:
@@ -185,9 +185,9 @@ class OmegaConfig:
             return np.asarray(self.levels, dtype=float)
 
         return np.linspace(
-            self.lower,
-            self.upper,
-            self.steps,
+            start=cast(float, self.lower),
+            stop=cast(float, self.upper),
+            num=cast(int,self.steps),
         )
 
 @dataclass
@@ -220,11 +220,13 @@ class SpectralConfig:
 
 @dataclass
 class BandConfig:
-    energy_max: float
-    energy_min: float
+    energy_max: float = 1
+    energy_min: float = -1
 
     colour: str | None = None
     spin_projection: str | None = None
+    mu: float = 0
+    
 
     def validate(self) -> None:
 
@@ -233,7 +235,8 @@ class BandConfig:
 
         if self.colour is not None:
             from matplotlib.colors import CSS4_COLORS as c
-            if self.colour not in c.keys():
+            from matplotlib import colormaps as cmaps
+            if self.colour not in c.keys() and self.colour not in cmaps.keys():
                 raise ValueError(
                     f'band.colour: {self.colour!r} is not a valid colour'
                     f'band.colour must be None or in\n{c.keys()}')
@@ -243,12 +246,6 @@ class BandConfig:
                 "spin_projection must be one of: null, '0', 'x', 'y', 'z', 'all'"
             )
         
-
-        
-
-
-
-
 
 @dataclass
 class CalculationConfig:
@@ -274,6 +271,9 @@ class CalculationConfig:
                 f"Unsupported calculation type: {self.type!r}"
             )
 
+# ====================
+# Execution Configs
+# ====================
 
 @dataclass
 class ExecutionConfig:
@@ -297,6 +297,9 @@ class ExecutionConfig:
         if self.time_limit_hours is not None and self.time_limit_hours <= 0:
             raise ValueError("time_limit_hours must be positive")
 
+# ====================
+# Output Configs
+# ====================
 
 @dataclass
 class OutputConfig:
@@ -304,7 +307,28 @@ class OutputConfig:
     save_data: bool = True
     plot: bool = True
     format: str = "pdf"
+    font: str = "Arial"
+    font_size: float = 7
+    fig_size: tuple[float, float] = (2, 1.5)
 
+    def validate(self) -> None:
+
+        if self.format.lower() not in {
+            'pdf', 'png', 'jpg'
+        }:
+            raise ValueError
+
+        if self.font_size <= 0:
+            raise ValueError(f'output.font_size must be positive')
+
+        for i in range(2):
+            if self.fig_size[i] <= 0:
+                raise ValueError(f'output.fig_size must be positive. A non-positive value was found at index {i}.')
+
+
+# ====================
+# Debug Configs
+# ====================
 
 @dataclass
 class DebugConfig:
@@ -347,6 +371,7 @@ class AppConfig:
         )
         self.calculation.validate(layers)
         self.execution.validate()
+        self.output.validate()
         self.debug.validate()
 
 
@@ -406,7 +431,8 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
                 energy_min=band_raw.get('energy_min'),
                 energy_max=band_raw.get('energy_max'),
                 colour=band_raw.get('colour', None),
-                spin_projection=band_raw.get('spin_projection', None)
+                spin_projection=band_raw.get('spin_projection', None),
+                mu=band_raw.get('mu', 0),
             )
             if 'band' in c_raw
             else None
@@ -443,8 +469,6 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         raise ValueError(
             f"Invalid configuration fields or value types: {exc}"
         ) from exc
-
-
 
 
 def load_config(filename: str | Path) -> AppConfig:

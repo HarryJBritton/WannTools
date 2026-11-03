@@ -29,9 +29,9 @@ class KArea:
 
 
       if centre is None:
-         k = np.einsum('ji, xyj -> xyi', bvec, T)
+         k = np.einsum('ji, xyj -> xyi', bvec, T, optimize=True)
       elif centre in Space_Groups['160'].keys():
-         k = np.einsum('ji, j -> i', bvec,  Space_Groups['160'][centre]) + T * self.width
+         k = np.einsum('ji, j -> i', bvec,  Space_Groups['160'][centre], optimize=True) + T * self.width
 
 
 

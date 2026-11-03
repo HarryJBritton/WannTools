@@ -43,7 +43,7 @@ class MPIExecutor(Executor):
             return []
 
         results = [None] * n_chunks
-        for rank_results in gathered:
+        for rank_results in gathered: # type: ignore
             for chunk_id, result in rank_results:
                 results[chunk_id] = result
 

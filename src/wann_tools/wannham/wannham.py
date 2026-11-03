@@ -81,7 +81,7 @@ class WannHam():
 
         flat_k = k.reshape((flat_length,3))
 
-        phase = np.einsum('ki, rj, ji -> kr', flat_k, self.rvec,  self.lvec)
+        phase = np.einsum('ki, rj, ji -> kr', flat_k, self.rvec,  self.lvec, optimize=True)
 
         exp = np.exp(-1j * phase)
 

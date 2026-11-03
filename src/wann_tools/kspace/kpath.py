@@ -32,8 +32,8 @@ class KPath:
       kl = np.zeros((nkps), dtype=float)
 
       for path_index in range(len(self.path)-1):
-         k0 = np.einsum('ji, j -> i', bvec,self.group[path[path_index]] )
-         k1 = np.einsum('ji, j -> i', bvec, self.group[path[path_index + 1]]  )
+         k0 = np.einsum('ji, j -> i', bvec,self.group[path[path_index]], optimize=True )
+         k1 = np.einsum('ji, j -> i', bvec, self.group[path[path_index + 1]], optimize=True  )
 
          for step in range(self.nps):
             # step along the k path
@@ -51,7 +51,7 @@ class KPath:
 
       # correct for the last high symmetry point
 
-      k[-1,:] = np.einsum('ji, j -> i', bvec, self.group[path[-1]])
+      k[-1,:] = np.einsum('ji, j -> i', bvec, self.group[path[-1]], optimize=True)
       kl[-1] = np.linalg.norm( k[-1,:] -  k[-2,:]) + kl[-2]
 
       self.k = k

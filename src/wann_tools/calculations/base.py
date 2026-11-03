@@ -4,6 +4,7 @@ from typing import Any
 
 from wann_tools.config import AppConfig
 from wann_tools.context import CalculationContext
+from wann_tools.executors.base import Executor
 
 @dataclass
 class ResourceEstimate:
@@ -30,7 +31,7 @@ class Calculation(ABC):
     name: str
 
     @abstractmethod
-    def validate(self, config: AppConfig, context) -> None:
+    def validate(self, config: AppConfig, context: CalculationContext) -> None:
         """Check calculation-specific configuration."""
 
     @abstractmethod
@@ -43,6 +44,11 @@ class Calculation(ABC):
         ...
 
     @abstractmethod
-    def run(self, config: AppConfig, context: CalculationContext, executor):
+    def run(
+        self,
+        config: AppConfig,
+        context: CalculationContext,
+        executor: Executor,
+    ) -> int:
         """Execute the calculation using the selected backend."""
         ...

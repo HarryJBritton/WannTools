@@ -32,9 +32,9 @@ class KArea:
          k = np.einsum('ji, xyj -> xyi', bvec, T, optimize=True)
       elif centre in Space_Groups['160'].keys():
          k = np.einsum('ji, j -> i', bvec,  Space_Groups['160'][centre], optimize=True) + T * self.width
-
-
-
+      else:
+         raise ValueError
+      
       self.k = k
 
    def mpi_split(self, rank, size):

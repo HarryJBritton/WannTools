@@ -7,12 +7,12 @@ hamiltonian:
 kspace:
   type: surface
   surface:
-    n1: 81
-    n2: 81
+    n1: 151
+    n2: 151
     level: 0
     fixed_axis: 2
-    centre: G
-    width: 2
+    centre: K'
+    width:  1
 
 calculation:
   type: band
@@ -21,7 +21,7 @@ calculation:
     energy_min: 0.85
     energy_max: 0.9
     spin_projection: all
-    colour: coolwarm
+    colour: hot
     mu: 0.0
 
 execution:
@@ -31,11 +31,12 @@ execution:
 
 
 output:
-  directory: data/out
+  directory: data/out/spintextures/Fermi
   save_data: true
   plot: true
   format: pdf
-  fig_size: [2, 2]
+  fig_size: [1, 1]
+  font_size: 6
 
 debug:
   enabled: true

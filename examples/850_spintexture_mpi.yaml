@@ -1,0 +1,46 @@
+hamiltonian:
+  hr_file: data/in/3R-TaSe2_hr.dat
+  nnkp_file: data/in/3R-TaSe2.nnkp
+  dtype: 64
+  fermi_energy: 4.1834800790
+
+kspace:
+  type: surface
+  surface:
+    n1: 201
+    n2: 201
+    level: 0
+    fixed_axis: 2
+    centre: K
+    width: .2
+
+calculation:
+  type: band
+
+  band:
+    energy_min: 0.85
+    energy_max: 0.9
+    spin_projection: all
+    colour: coolwarm
+    mu: 0.85
+
+execution:
+  backend: mpi
+  ranks: 10
+  chunk_size: 25
+
+
+output:
+  directory: data/out/spintextures/850
+  save_data: true
+  plot: true
+  format: pdf
+  fig_size: [1, 1]
+  font_size: 6
+
+debug:
+  enabled: true
+  log_level: DEBUG
+  log_chunks: true
+  log_chunk_timing: true
+  # limit_chunks: 10

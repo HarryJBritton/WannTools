@@ -1,10 +1,11 @@
 import matplotlib as mpl
-import matplotlib.colors
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.colors import LogNorm, Norm, Normalize, CSS4_COLORS
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import AutoMinorLocator, LinearLocator, MaxNLocator
-import matplotlib.pyplot as plt
 
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator, LinearNDInterpolator
 from typing import cast
 
 
@@ -91,7 +92,6 @@ class BandCalculation(Calculation):
             chunk_result, chunk_projection = Band(
                 hk=hk,
                 ef=config.hamiltonian.fermi_energy,
-                sp=settings.spin_projection, 
             )
 
             if (
@@ -183,45 +183,64 @@ class BandCalculation(Calculation):
         ax_lw = 0.5 * SCALE
         band_lw = 0.6 * SCALE
 
-        if surface_settings.centre is None:
-            X = kspace.k[..., 0]
-            Y = kspace.k[..., 1]
-        else:
-            cx = np.mean(kspace.k[..., 0])
-            cy = np.mean(kspace.k[..., 1])
+        cx = np.mean(kspace.k[..., 0])
+        cy = np.mean(kspace.k[..., 1])
 
-            X = kspace.k[..., 0] - cx
-            Y = kspace.k[..., 1] - cy
+        X = kspace.k[..., 0] - cx
+        Y = kspace.k[..., 1] - cy
 
         # TODO writeout contour 
         # f = open(output_settings.directory / "contour.csv", "w", newline="")
         # writer = csv.writer(f)
 
         level = settings.mu
+        grid_points = np.column_stack((X.ravel(), Y.ravel()))
+
+
+        FBZ = False
+        if FBZ:
+            hexagon = patches.RegularPolygon(
+                (0, 0),
+                6,
+                radius=1.219514942,
+                orientation=np.pi / 6,
+                transform=ax.transData,
+                fill=False,
+                edgecolor='black',
+                linewidth=band_lw,
+                zorder=10
+            )
+            ax.add_patch(hexagon)
+        else:
+            hexagon = None
+
+
 
         for ri in range(energy.shape[-1]):
             if energy[..., ri].max() >level and energy[..., ri].min() < level:
 
-                cs = ax.contour(X,Y, energy[..., ri], levels=[level], colors='black')
+                cs = ax.contour(X,Y, energy[..., ri], levels=[level], colors='black', lw = band_lw / 4)
+                if hexagon is not None:
+                    cs.set_clip_path(hexagon)
 
-                interp_u = RegularGridInterpolator(
-                    ( X[0,:], Y[:, 0]), proj_x[...,ri],
-                    bounds_error=False,
+                interp_u = LinearNDInterpolator(
+                    grid_points,
+                    proj_x[...,ri].ravel(),
                     fill_value=np.nan
                 )
-                interp_v = RegularGridInterpolator(
-                    ( X[0,:], Y[:, 0]), proj_y[...,ri],
-                    bounds_error=False,
+                interp_v  = LinearNDInterpolator(
+                    grid_points,
+                    proj_y[...,ri].ravel(),
                     fill_value=np.nan
                 )
 
                 # TODO generalise the colouring choice.
 
-                ratio = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2) / np.abs(proj_z[...,ri])
+                ratio = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2) / (np.abs(proj_z[...,ri]) + 1e-12)
 
-                interp_z = RegularGridInterpolator(
-                    (X[0,:], Y[:, 0]), ratio,
-                    bounds_error=False,
+                interp_z = LinearNDInterpolator(
+                    grid_points,
+                    ratio.ravel(),
                     fill_value=np.nan
                 )
 
@@ -243,55 +262,94 @@ class BandCalculation(Calculation):
                         yc = points[:, 1]
 
                         # Evaluate vector field at contour points
-                        query_points = np.column_stack((yc, xc))
+                        query_points = np.column_stack((xc, yc))
                         uc = interp_u(query_points)
                         vc = interp_v(query_points)
                         zc = interp_z(query_points)
 
-                        spacing = 4
+                        valid = np.isfinite(uc) & np.isfinite(vc)
 
-                        ax.quiver(
+                        logger.debug(
+                            f"Contour points: {len(points)}, "
+                            f"valid interpolations: {valid.sum()}"
+                        )
+
+                        # mag = np.hypot(uc, vc)
+                        # idx = np.where(mag ==0)
+                        # mag[idx] = 1
+                        # uc = uc / mag
+                        # vc = vc / mag
+
+
+                        spacing = 6
+
+                        
+
+                        q = ax.quiver(
                             xc[::spacing], yc[::spacing],
                             uc[::spacing], vc[::spacing],
                             zc[::spacing],
                             angles="xy",
-                            scale_units="width",
-                            scale=1.5,
+                            scale_units="xy",
+                            scale=2, #3
                             cmap=cmap,
-                            clim=(0, 0.3),
+                            norm=Normalize(vmin=0,vmax=1), #LogNorm(vmin=0.01, vmax=5),
                             width=0.008
                         )
+
+                        
+                        if hexagon is not None:
+                            q.set_clip_path(hexagon)
+                    
+
                 ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
 
         # f.close()
 
 
-        # TODO Plot all High Sym points
-        ax.scatter(0, 0, color='black', marker='x')
-        ax.annotate(
-            'K',
-            xy=(0,0),
-            xytext=(5, 5),
-            textcoords='offset points',
-        )
+        for key, value in Space_Groups['160'].items():
+            point = np.einsum(
+                'ji, j -> i',
+                kspace.bvec,
+                value,
+                optimize=True
+            )
 
-        ax.set_xlim((X.min(), X.max()))
-        ax.set_ylim((Y.min(), Y.max()))
+            ax.scatter(
+                point[0] - cx,
+                point[1] - cy,
+                color='black',
+                marker='x'
+            )
+            ax.annotate(
+                key if key != 'G' else r'$\Gamma$',
+                xy=(point[0]-cx,point[1]-cy),
+                xytext=(5, 5),
+                textcoords='offset points',
+            )
+
+        # might not be needed otherwise
+        # TODO generalise to other lattice vectors
+        if FBZ:
+            ax.set_xlim((-1.219514942, 1.219514942))
+            ax.set_ylim((-1.219514942, 1.219514942))
+        else:
+            ax.set_xlim((X.min(), X.max()))
+            ax.set_ylim((Y.min(), Y.max()))
 
         ax.set_ylabel(r'$k_y$ (Å$^{\mathrm{-1}}$)')
         ax.set_xlabel(r'$k_x$ (Å$^{\mathrm{-1}}$)')
 
-        ax.tick_params(
-                    which='major',
-                    width=ax_lw,
-                    length=3*SCALE,
-                    labelsize=5*SCALE,
-                )
 
+        # Ticks
         ax.xaxis.set_major_locator(LinearLocator(3))
         ax.yaxis.set_major_locator(LinearLocator(3))
-
-        
+        ax.tick_params(
+            which='major',
+            width=ax_lw,
+            length=3*SCALE,
+            labelsize=5*SCALE,
+        )
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.tick_params(
@@ -300,11 +358,10 @@ class BandCalculation(Calculation):
             length=1*SCALE,
         )
         
-
-        norm = mpl.colors.Normalize(vmin=0, vmax=.3) # type: ignore
-        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap) # type: ignore
-        sm.set_array([])
-
+        # Colourbar 
+        # norm = mpl.colors.Normalize(vmin=0, vmax=1) # type: ignore
+        # sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap) # type: ignore
+        # sm.set_array([])
         # cb = fig.colorbar(
         #     sm,
         #     ax=ax,
@@ -313,14 +370,25 @@ class BandCalculation(Calculation):
         #     shrink=0.75
         # )
 
+       
 
         # Axis lw
         for spine in ax.spines.values():
             spine.set_linewidth(ax_lw)
 
+        # TODO make this adaptable
+        if FBZ:
+            ax.set_axis_off()
+        else:
+            ax.set_axis_on()
+
+            
+
+        # ax.set_aspect('equal')
+
 
         fig.savefig(
-            config.output.directory / ("surface_bands." + output_settings.format),
+            config.output.directory / (f"surface_bands{'' if surface_settings.centre is None else "_"+surface_settings.centre}." + output_settings.format),
             bbox_inches="tight",
             dpi=100,
         )
@@ -347,7 +415,7 @@ class BandCalculation(Calculation):
             norm = None
             cmap = None
         elif proj_dir is None:
-            colour = matplotlib.colors.CSS4_COLORS[
+            colour = CSS4_COLORS[
                 settings.colour
             ]
             norm = None
@@ -486,7 +554,7 @@ class BandCalculation(Calculation):
         )
         plt.close(fig)
 
-def Band(hk, ef: float = 0, sp: str | None = None):
+def Band(hk, ef: float = 0):
 
     nb = hk.shape[-1]
     no = nb // 2
@@ -505,9 +573,32 @@ def Band(hk, ef: float = 0, sp: str | None = None):
             [0, -1],
         ])),
     }
-
-
     vals, vecs = np.linalg.eigh(hk)
+
+    sz = proj_op['z']
+
+    if False:
+        cuts = np.flatnonzero(np.diff(vals) > 1e-5) + 1
+        for group in np.split(np.arange(nb), cuts):
+            if len(group) < 2:
+                continue
+
+            logger.debug('Found degen')
+
+            v = vecs[:,:, group]
+
+
+
+            Sproj = np.einsum(
+                'xil, ij, xjk -> xlk',
+                v.conj(),
+                sz,
+                v,
+                optimize=True,
+            )
+            _, U = np.linalg.eigh(Sproj)
+            vecs[:, :, group] = np.einsum('xij,xjk->xik', v, U, optimize=True)
+
     S = np.array([proj_op['x'], proj_op['y'], proj_op['z']])
     proj =  np.real(np.einsum(
         'xik, aij, xjk -> xka',

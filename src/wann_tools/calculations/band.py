@@ -386,7 +386,7 @@ class BandCalculation(Calculation):
 
         # ax.set_aspect('equal')
 
-
+        config.output.directory.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             config.output.directory / (f"surface_bands{'' if surface_settings.centre is None else "_"+surface_settings.centre}." + output_settings.format),
             bbox_inches="tight",
@@ -547,6 +547,7 @@ class BandCalculation(Calculation):
                 lw=ax_lw,
             )
 
+        config.output.directory.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             config.output.directory / ("path_bands." + output_settings.format),
             bbox_inches="tight",

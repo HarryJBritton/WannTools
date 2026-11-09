@@ -21,8 +21,16 @@ calculation:
     energy_min: 0.85
     energy_max: 0.9
     spin_projection: all
-    colour: hot
     mu: 0.0
+    plot:
+      enabled: true
+      colour: hot
+      scale: sqrt
+      clim: [0,1]
+      # show_BZ: true
+      export_CB: true
+
+
 
 execution:
   backend: mpi

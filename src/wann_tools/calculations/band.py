@@ -1,16 +1,17 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.colors import LogNorm, Norm, Normalize, CSS4_COLORS
+from matplotlib.colors import Colormap, FuncNorm, LogNorm, Norm, Normalize, CSS4_COLORS, PowerNorm
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import AutoMinorLocator, LinearLocator, MaxNLocator
+from matplotlib.cm import ScalarMappable
 
 from scipy.interpolate import RegularGridInterpolator, LinearNDInterpolator
 from typing import cast
 
 
 from wann_tools.calculations.base import ResourceEstimate
-from wann_tools.config import AppConfig, BandConfig, SurfaceConfig
+from wann_tools.config import AppConfig, BandConfig, OutputConfig, SurfaceConfig
 from wann_tools.context import CalculationContext
 from wann_tools.executors.base import Executor
 from wann_tools.kspace import kpath, KArea, KPath
@@ -158,16 +159,11 @@ class BandCalculation(Calculation):
     def _plot_surface(config: AppConfig, kspace: KArea, result):
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
+        # extract settings
         settings = cast(BandConfig, config.calculation.band)
+        plot_settings = settings.plot
         surface_settings = cast(SurfaceConfig, config.kspace.surface)
         output_settings = config.output
-
-
-        energy = result[..., 0]
-        proj_x = result[..., 1]
-        proj_y = result[..., 2]
-        proj_z = result[..., 3]
-
 
         # Pre config
         SCALE = 4
@@ -175,10 +171,22 @@ class BandCalculation(Calculation):
         plt.rcParams.update({'font.size': output_settings.font_size * SCALE})
         fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size)) 
 
-        # Colour set up
-        norm = mpl.colors.Normalize(vmin=-1, vmax=1) # type: ignore
-        cmap = plt.get_cmap(settings.colour, 256*64)
-
+        # Colour set up 
+        vmin, vmax = plot_settings.clim if plot_settings.clim is not None else (None, None)
+        norms = {
+            "linear": lambda: Normalize(vmin=vmin, vmax=vmax),
+            "sqrt": lambda: PowerNorm(gamma=0.5, vmin=vmin, vmax=vmax),
+            "cbrt": lambda: PowerNorm(gamma=1./3., vmin=vmin, vmax=vmax),
+            "log": lambda: LogNorm(vmin=vmin if vmin is None else vmin + 1e-12, vmax=vmax),
+        }
+        norm = norms[plot_settings.scale]()
+        cmap = plt.get_cmap(plot_settings.colour, 256*64)
+        
+        # Main variables
+        energy = result[..., 0]
+        proj_x = result[..., 1]
+        proj_y = result[..., 2]
+        proj_z = result[..., 3]
 
         ax_lw = 0.5 * SCALE
         band_lw = 0.6 * SCALE
@@ -189,15 +197,10 @@ class BandCalculation(Calculation):
         X = kspace.k[..., 0] - cx
         Y = kspace.k[..., 1] - cy
 
-        # TODO writeout contour 
-        # f = open(output_settings.directory / "contour.csv", "w", newline="")
-        # writer = csv.writer(f)
-
         level = settings.mu
         grid_points = np.column_stack((X.ravel(), Y.ravel()))
 
-
-        FBZ = False
+        FBZ = plot_settings.show_BZ
         if FBZ:
             hexagon = patches.RegularPolygon(
                 (0, 0),
@@ -213,8 +216,6 @@ class BandCalculation(Calculation):
             ax.add_patch(hexagon)
         else:
             hexagon = None
-
-
 
         for ri in range(energy.shape[-1]):
             if energy[..., ri].max() >level and energy[..., ri].min() < level:
@@ -235,23 +236,13 @@ class BandCalculation(Calculation):
                 )
 
                 # TODO generalise the colouring choice.
-
-                ratio = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2) / (np.abs(proj_z[...,ri]) + 1e-12)
+                ratio = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2)
 
                 interp_z = LinearNDInterpolator(
                     grid_points,
                     ratio.ravel(),
                     fill_value=np.nan
                 )
-
-                
-                # # Writer for contours
-                # for path in cs.get_paths():
-                #     vert = path.vertices
-                #     writer.writerow(vert) # type: ignore
-                #     writer.writerow(["", ""])  # Separate disconnected paths
-
-
 
                 for idx, segments in enumerate(cs.allsegs):
                     for points in segments:
@@ -274,16 +265,8 @@ class BandCalculation(Calculation):
                             f"valid interpolations: {valid.sum()}"
                         )
 
-                        # mag = np.hypot(uc, vc)
-                        # idx = np.where(mag ==0)
-                        # mag[idx] = 1
-                        # uc = uc / mag
-                        # vc = vc / mag
-
-
+                        # TODO add to config
                         spacing = 6
-
-                        
 
                         q = ax.quiver(
                             xc[::spacing], yc[::spacing],
@@ -291,21 +274,16 @@ class BandCalculation(Calculation):
                             zc[::spacing],
                             angles="xy",
                             scale_units="xy",
-                            scale=2, #3
+                            scale=2,
                             cmap=cmap,
-                            norm=Normalize(vmin=0,vmax=1), #LogNorm(vmin=0.01, vmax=5),
+                            norm=norm,
                             width=0.008
                         )
 
-                        
                         if hexagon is not None:
                             q.set_clip_path(hexagon)
                     
-
                 ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
-
-        # f.close()
-
 
         for key, value in Space_Groups['160'].items():
             point = np.einsum(
@@ -356,21 +334,7 @@ class BandCalculation(Calculation):
             which='minor',
             width=ax_lw,
             length=1*SCALE,
-        )
-        
-        # Colourbar 
-        # norm = mpl.colors.Normalize(vmin=0, vmax=1) # type: ignore
-        # sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap) # type: ignore
-        # sm.set_array([])
-        # cb = fig.colorbar(
-        #     sm,
-        #     ax=ax,
-        #     orientation='horizontal',
-        #     location='top',
-        #     shrink=0.75
-        # )
-
-       
+        )       
 
         # Axis lw
         for spine in ax.spines.values():
@@ -382,10 +346,6 @@ class BandCalculation(Calculation):
         else:
             ax.set_axis_on()
 
-            
-
-        # ax.set_aspect('equal')
-
         config.output.directory.mkdir(parents=True, exist_ok=True)
         fig.savefig(
             config.output.directory / (f"surface_bands{'' if surface_settings.centre is None else "_"+surface_settings.centre}." + output_settings.format),
@@ -394,12 +354,20 @@ class BandCalculation(Calculation):
         )
         plt.close(fig)
 
+        if plot_settings.export_CB:
+            export_CB(
+                output_settings=output_settings,
+                cmap=cmap,
+                norm=norm,
+            )
+        
     @staticmethod
     def _plot_path(config: AppConfig, kspace, result):
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
         # get settings from config
         settings = cast(BandConfig, config.calculation.band)
+        plot_settings = settings.plot
         output_settings = config.output
         proj_dir = settings.spin_projection
 
@@ -410,20 +378,20 @@ class BandCalculation(Calculation):
         fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size) ) 
 
         # Colour set up
-        if settings.colour is None:
+        if plot_settings.colour is None:
             colour = None
             norm = None
             cmap = None
         elif proj_dir is None:
             colour = CSS4_COLORS[
-                settings.colour
+                plot_settings.colour
             ]
             norm = None
             cmap = None
         else:
             colour = None
             norm = mpl.colors.Normalize(vmin=-1, vmax=1) # type: ignore
-            cmap = plt.get_cmap(settings.colour, 256*64)
+            cmap = plt.get_cmap(plot_settings.colour, 256*64)
         
         
         ax_lw = 0.5 * SCALE
@@ -613,3 +581,17 @@ def Band(hk, ef: float = 0):
     return  vals - ef, proj
 
 
+def export_CB(output_settings: OutputConfig, cmap: Colormap, norm: Norm):
+
+    fig, ax = plt.subplots(figsize=(1.5,4))
+
+    cbar = fig.colorbar(
+        ScalarMappable(norm=norm, cmap=cmap),
+        cax=ax,
+    )
+
+    cbar.ax.set_yscale('linear')
+    fig.savefig(output_settings.directory / ( 'colourbar.'+ output_settings.format),
+                bbox_inches="tight",
+                dpi=100,)
+    plt.close(fig)

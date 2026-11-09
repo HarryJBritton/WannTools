@@ -1,7 +1,9 @@
+from ast import Tuple
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Union, Type, cast
 
+from mypy.util import T
 import numpy as np
 import yaml
 
@@ -9,6 +11,8 @@ import yaml
 KSpaceType = Literal['path', 'surface', 'volume']
 CalculationType = Literal['spectral', 'band']
 BackendType = Literal['serial', 'mpi']
+
+ColourScaleType = Literal['linear', 'sqrt', 'cbrt', 'log', 'exp']
 
 # ====================
 # Hamiltonain Configs
@@ -218,32 +222,58 @@ class SpectralConfig:
                 )
 
 
+@dataclass 
+class BandPlotConfig:
+    enabled: bool = True
+
+    # Colour settings
+    colour: str | None = None
+    scale: ColourScaleType = 'linear'
+    clim: tuple[float, float] | None = None
+
+    show_BZ: bool = False
+    export_CB: bool = False
+
+    def validate(self) -> None:
+
+        if self.colour is not None:
+                from matplotlib.colors import CSS4_COLORS as c
+                from matplotlib import colormaps as cmaps
+                if self.colour not in c.keys() and self.colour not in cmaps.keys():
+                    raise ValueError(
+                        f'band.colour: {self.colour!r} is not a valid colour'
+                        f'band.colour must be None or in\n{c.keys()}')
+
+        # TODO figure out how to validate the literal types
+
+        if self.clim is not None:
+            if self.clim[0] >= self.clim[1]:
+                raise ValueError(f"element 0 of band.plot.clim must be less than element 1")
+
+
+
 @dataclass
 class BandConfig:
     energy_max: float = 1
     energy_min: float = -1
-
-    colour: str | None = None
     spin_projection: str | None = None
     mu: float = 0
+
+    plot: BandPlotConfig = field(default_factory=BandPlotConfig)
     
     def validate(self) -> None:
 
         if self.energy_max <= self.energy_min:
             raise ValueError('band.energy_max must be larger than band.energy_min')
 
-        if self.colour is not None:
-            from matplotlib.colors import CSS4_COLORS as c
-            from matplotlib import colormaps as cmaps
-            if self.colour not in c.keys() and self.colour not in cmaps.keys():
-                raise ValueError(
-                    f'band.colour: {self.colour!r} is not a valid colour'
-                    f'band.colour must be None or in\n{c.keys()}')
-
+      
         if self.spin_projection not in (None, "0", "x", "y", "z", "all"):
             raise ValueError(
                 "spin_projection must be one of: null, '0', 'x', 'y', 'z', 'all'"
             )
+
+        self.plot.validate()
+
         
 
 @dataclass
@@ -425,13 +455,15 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
             if "spectral" in c_raw
             else None
         )
+
+
         band = (
             BandConfig(
                 energy_min=band_raw.get('energy_min'),
                 energy_max=band_raw.get('energy_max'),
-                colour=band_raw.get('colour', None),
                 spin_projection=band_raw.get('spin_projection', None),
                 mu=band_raw.get('mu', 0),
+                plot=BandPlotConfig(**band_raw['plot']),
             )
             if 'band' in c_raw
             else None

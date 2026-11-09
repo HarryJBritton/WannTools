@@ -227,7 +227,6 @@ class BandConfig:
     spin_projection: str | None = None
     mu: float = 0
     
-
     def validate(self) -> None:
 
         if self.energy_max <= self.energy_min:
@@ -449,6 +448,8 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         output = OutputConfig(**o_raw)
 
         debug = DebugConfig(**raw.get("debug", {}))
+
+        #TODO make each calculation handle it's own output / plotting
 
         config = AppConfig(
             hamiltonian=hamiltonian,

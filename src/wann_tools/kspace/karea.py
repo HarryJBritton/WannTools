@@ -1,14 +1,33 @@
-from matplotlib import axes
+from typing import Any
 import numpy as np
 
+from wann_tools.kspace.base import KSpaceProvider
 from .space_groups import Space_Groups
 
-class KArea:
+class KArea(KSpaceProvider):
 
-   def __init__(self, bvec, n1=20, n2=20, level: float=0, fixed_axis=2, centre=None, width=1.0):
+   def __init__(
+      self,
+      bvec,
+      group: str,
+      n1: int,
+      n2: int,
+      level: float,
+      fixed_axis: int,
+      centre: str | None,
+      width: float,
+   ):
+
+      # inherited properties
+      self._bvec = bvec
+      if group in Space_Groups.keys(): # Validate Space group
+         self._group = Space_Groups[group]
+      else:
+         raise ValueError(f"Space group {group} not in the database")
+
+
       self.nk1 = n1
       self.nk2 = n2
-      self.bvec = bvec
       self.nkps = self.nk1 * self.nk2
       self.width = width
 
@@ -30,39 +49,31 @@ class KArea:
 
       if centre is None:
          k = np.einsum('ji, xyj -> xyi', bvec, T, optimize=True)
-      elif centre in Space_Groups['160'].keys():
+      elif centre in self.space_group.keys():
          k = np.einsum('ji, j -> i', bvec,  Space_Groups['160'][centre], optimize=True) + T * self.width
       else:
          raise ValueError
       
-      self.k = k
+      self._k = k
 
-   def mpi_split(self, rank, size):
-      nkx, nky, ndim = self.k.shape
+   @property
+   def count(self) -> int:
+      return np.prod(self.k.shape[:-1])
 
-      # Number of k-grid rows assigned to each rank
-      counts = np.full(size, nkx // size, dtype=int)
-      counts[:nkx % size] += 1
+   @property
+   def space_group(self) -> dict:
+      return self._group
 
-      # Starting row for each rank
-      starts = np.zeros(size, dtype=int)
-      starts[1:] = np.cumsum(counts[:-1])
+   @property
+   def bvec(self) -> Any:
+      return self._bvec
 
-      local_start = starts[rank]
-      local_count = counts[rank]
-
-      if rank == 0:
-         print('=' * 25)
-         print(f'k-grid: {nkx} x {nky}')
-         print(f'MPI ranks: {size}')
+   @property
+   def k(self) -> Any:
+      return self._k
 
 
-      print(
-         f'Rank {rank}: '
-         f'k rows {local_start}:{local_start + local_count}'
-      )
 
-      return self.k[local_start:local_start + local_count, :, :].copy(), counts
 
       
 

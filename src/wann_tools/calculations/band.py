@@ -1,12 +1,12 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.colors import Colormap, FuncNorm, LogNorm, Norm, Normalize, CSS4_COLORS, PowerNorm
+from matplotlib.colors import Colormap, LogNorm, Norm, Normalize, CSS4_COLORS, PowerNorm
 from matplotlib.collections import LineCollection
 from matplotlib.ticker import AutoMinorLocator, LinearLocator, MaxNLocator
 from matplotlib.cm import ScalarMappable
 
-from scipy.interpolate import RegularGridInterpolator, LinearNDInterpolator
+from scipy.interpolate import LinearNDInterpolator
 from typing import cast
 
 
@@ -283,7 +283,7 @@ class BandCalculation(Calculation):
                         if hexagon is not None:
                             q.set_clip_path(hexagon)
                     
-                ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
+                # ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
 
         for key, value in Space_Groups['160'].items():
             point = np.einsum(
@@ -297,7 +297,7 @@ class BandCalculation(Calculation):
                 point[0] - cx,
                 point[1] - cy,
                 color='black',
-                marker='x'
+                marker='o'
             )
             ax.annotate(
                 key if key != 'G' else r'$\Gamma$',
@@ -340,9 +340,23 @@ class BandCalculation(Calculation):
         for spine in ax.spines.values():
             spine.set_linewidth(ax_lw)
 
-        # TODO make this adaptable
-        if FBZ:
+        if FBZ :
             ax.set_axis_off()
+        elif not plot_settings.plot_ax:
+            ax.tick_params(
+                axis='both',
+                which='both',
+                bottom=False,
+                top=False,
+                left=False,
+                right=False,
+                labelbottom=False,
+                labelleft=False
+            )
+
+            ax.set_ylabel('')
+            ax.set_xlabel('')
+            
         else:
             ax.set_axis_on()
 

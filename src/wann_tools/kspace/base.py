@@ -1,18 +1,27 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
+
+# TODO This doesn't have to be abstract currently as no methods are required. 
 class KSpaceProvider(ABC):
 
+    @property
     @abstractmethod
     def count(self) -> int:
-        """Return the total number of k-points."""
+        ''' Counts the number of k points'''
         ...
 
+    @property
     @abstractmethod
-    def iter_chunks(self, chunk_size: int):
-        """Yield chunks of k-points."""
+    def space_group(self) -> dict:
         ...
 
+    @property
     @abstractmethod
-    def metadata(self) -> dict:
-        """Return geometry and output-coordinate metadata."""
+    def bvec(self) -> Any:
+        ...
+
+    @property
+    @abstractmethod
+    def k(self) -> Any:
         ...

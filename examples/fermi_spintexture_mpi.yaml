@@ -25,10 +25,11 @@ calculation:
     plot:
       enabled: true
       colour: hot
-      scale: sqrt
+      scale: cbrt
       clim: [0,1]
       # show_BZ: true
-      export_CB: true
+      # export_CB: true
+      plot_ax: false
 
 
 

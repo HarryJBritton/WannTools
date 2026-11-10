@@ -1,28 +1,38 @@
 import numpy as np
+from typing import Any
 
+from wann_tools.kspace.base import KSpaceProvider
 from .space_groups import Space_Groups
 
 
-class KPath:
 
-    def __init__(self, path, bvec, num_per_section=30, space_group='160'):
-      self.nps = num_per_section
-      self.bvec = bvec
+class KPath(KSpaceProvider):
 
-      # Validate Space group
-      if space_group in Space_Groups.keys():
-        self.group = Space_Groups[space_group]
+   def __init__(
+      self,
+      bvec,
+      group: str,
+      path: list[str],
+      num_per_section: int,
+   ):
+
+      # inherited properties
+      self._bvec = bvec
+      if group in Space_Groups.keys(): # Validate Space group
+         self._group = Space_Groups[group]
       else:
-        raise Exception(f"Space group {space_group} not in the database")
+         raise ValueError(f"Space group {group} not in the database")
+
+      self.nps = num_per_section
 
       # Validate Path
       valid_path_flag = True
       for point in path:
-         if not point in self.group.keys():
+         if not point in self.space_group.keys():
             valid_path_flag = False
 
       if valid_path_flag == False:
-         raise Exception(f'Path {path} is not valid for space group {space_group}')
+         raise Exception(f'Path {path} is not valid for space group {group}')
       else:
          self.path = path
 
@@ -32,8 +42,8 @@ class KPath:
       kl = np.zeros((nkps), dtype=float)
 
       for path_index in range(len(self.path)-1):
-         k0 = np.einsum('ji, j -> i', bvec,self.group[path[path_index]], optimize=True )
-         k1 = np.einsum('ji, j -> i', bvec, self.group[path[path_index + 1]], optimize=True  )
+         k0 = np.einsum('ji, j -> i', bvec,self.space_group[path[path_index]], optimize=True )
+         k1 = np.einsum('ji, j -> i', bvec, self.space_group[path[path_index + 1]], optimize=True  )
 
          for step in range(self.nps):
             # step along the k path
@@ -51,15 +61,30 @@ class KPath:
 
       # correct for the last high symmetry point
 
-      k[-1,:] = np.einsum('ji, j -> i', bvec, self.group[path[-1]], optimize=True)
+      k[-1,:] = np.einsum('ji, j -> i', bvec, self.space_group[path[-1]], optimize=True)
       kl[-1] = np.linalg.norm( k[-1,:] -  k[-2,:]) + kl[-2]
 
-      self.k = k
+      self._k = k
       self.length = kl
       self.time = kl / kl[-1]
       self.time_labels = ([self.time[i * self.nps] for i in range(len(self.path))])
 
 
+   @property
+   def count(self) -> int:
+      return np.prod(self.k.shape[:-1])
+
+   @property
+   def space_group(self) -> dict:
+      return self._group
+
+   @property
+   def bvec(self) -> Any:
+      return self._bvec
+   
+   @property
+   def k(self)-> Any:
+      return self._k
 
       
 

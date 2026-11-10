@@ -58,8 +58,6 @@ class HamiltonianConfig:
 class PathConfig:
     path: list[str]
     nps: int = 100
-    space_group: str = '160'
-
     def validate(self) -> None:
         if len(self.path) < 2:
             raise ValueError(
@@ -107,6 +105,7 @@ class VolumeConfig:
 @dataclass
 class KSpaceConfig:
     type: KSpaceType
+    space_group: str
     path: PathConfig | None = None
     surface: SurfaceConfig | None = None
     volume: VolumeConfig | None = None
@@ -233,6 +232,7 @@ class BandPlotConfig:
 
     show_BZ: bool = False
     export_CB: bool = False
+    plot_ax: bool = True
 
     def validate(self) -> None:
 
@@ -439,6 +439,7 @@ def _build_config(raw: dict[str, Any]) -> AppConfig:
         )
         kspace = KSpaceConfig(
             type=k_raw["type"],
+            space_group=k_raw.get("space_group", '160'),
             path=path,
             surface=surface,
             volume=volume,

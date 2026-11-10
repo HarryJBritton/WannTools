@@ -4,6 +4,7 @@ from typing import Any
 from wann_tools.config import AppConfig
 
 import numpy as np
+from wann_tools.kspace.base import KSpaceProvider
 
 @dataclass
 class CalculationContext:
@@ -24,7 +25,7 @@ class CalculationContext:
     hamiltonian_storage_bytes: int = 0
 
 
-def build_context(config: AppConfig, ham: Any, kspace: Any):
+def build_context(config: AppConfig, ham: Any, kspace: KSpaceProvider):
 
     # Hamiltonian metadata
     hamiltonian_dimension = ham.nb
@@ -32,14 +33,10 @@ def build_context(config: AppConfig, ham: Any, kspace: Any):
     hamiltonian_dtype = ham.dtype
     
 
-    # kspace data
-    kpoints = kspace.k
-    total_kpoints = int(np.prod(kpoints.shape[:-1]))
-
     return  CalculationContext(
         hamiltonian_dimension=hamiltonian_dimension,
         hamiltonian_dtype=hamiltonian_dtype,
-        total_kpoints=total_kpoints,
+        total_kpoints=kspace.count,
         hamiltonian=ham,
         kpoints=kspace,
         kspace_type=config.kspace.type,

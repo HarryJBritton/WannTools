@@ -230,9 +230,15 @@ class BandPlotConfig:
     scale: ColourScaleType = 'linear'
     clim: tuple[float, float] | None = None
 
-    show_BZ: bool = False
+    # General
     export_CB: bool = False
     plot_ax: bool = True
+
+    # Surface
+    show_BZ: bool = False
+    arrow_spacing: int = 6
+    show_title: bool = False
+    sym_points: list[str] | str = 'all'
 
     def validate(self) -> None:
 
@@ -249,6 +255,13 @@ class BandPlotConfig:
         if self.clim is not None:
             if self.clim[0] >= self.clim[1]:
                 raise ValueError(f"element 0 of band.plot.clim must be less than element 1")
+
+        if self.arrow_spacing < 1:
+            raise ValueError("band.plot.arrow_spacing must be greater that 0")
+
+        if type(self.sym_points) == str:
+            if self.sym_points != 'all':
+                raise ValueError('band.plot.sym_points must be list[str] or \'all\'') 
 
 
 

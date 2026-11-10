@@ -235,12 +235,11 @@ class BandCalculation(Calculation):
                     fill_value=np.nan
                 )
 
-                # TODO generalise the colouring choice.
-                ratio = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2)
+                proj_in_plane = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2)
 
                 interp_z = LinearNDInterpolator(
                     grid_points,
-                    ratio.ravel(),
+                    proj_in_plane.ravel(),
                     fill_value=np.nan
                 )
 
@@ -265,8 +264,8 @@ class BandCalculation(Calculation):
                             f"valid interpolations: {valid.sum()}"
                         )
 
-                        # TODO add to config
-                        spacing = 6
+
+                        spacing = plot_settings.arrow_spacing
 
                         q = ax.quiver(
                             xc[::spacing], yc[::spacing],
@@ -282,10 +281,17 @@ class BandCalculation(Calculation):
 
                         if hexagon is not None:
                             q.set_clip_path(hexagon)
-                    
-                # ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
 
-        for key, value in Space_Groups['160'].items():
+                if plot_settings.show_title:    
+                    ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
+
+        for key, value in kspace.space_group.items():
+
+            if plot_settings.sym_points != 'all':
+                if key not in plot_settings.sym_points:
+                    continue
+
+
             point = np.einsum(
                 'ji, j -> i',
                 kspace.bvec,
@@ -306,11 +312,17 @@ class BandCalculation(Calculation):
                 textcoords='offset points',
             )
 
-        # might not be needed otherwise
-        # TODO generalise to other lattice vectors
         if FBZ:
-            ax.set_xlim((-1.219514942, 1.219514942))
-            ax.set_ylim((-1.219514942, 1.219514942))
+
+            radius = np.linalg.norm(np.einsum(
+                'ji, j->i',
+                kspace.bvec,
+                np.array([0.5,0.5,0]),
+                optimize=True,
+            ))
+
+            ax.set_xlim((-radius, radius))
+            ax.set_ylim((-radius, radius))
         else:
             ax.set_xlim((X.min(), X.max()))
             ax.set_ylim((Y.min(), Y.max()))

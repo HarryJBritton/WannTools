@@ -59,7 +59,7 @@ output:
   directory: data/out
   save_data: true
   plot: true
-  format: pdf # TODO output format 
+  format: pdf
 
 debug:
   enabled: true

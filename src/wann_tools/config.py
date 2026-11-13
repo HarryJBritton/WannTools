@@ -225,6 +225,9 @@ class SpectralConfig:
 class BandPlotConfig:
     enabled: bool = True
 
+    # plotting
+    colour_by: str | None = None
+
     # Colour settings
     colour: str | None = None
     scale: ColourScaleType = 'linear'
@@ -237,18 +240,26 @@ class BandPlotConfig:
     # Surface
     show_BZ: bool = False
     arrow_spacing: int = 6
+    arrow_scale: float = 2
     show_title: bool = False
     sym_points: list[str] | str = 'all'
 
     def validate(self) -> None:
+
+        if self.colour_by is not None:
+            if self.colour_by.lower() not in ['s', 'l']:
+                raise ValueError(
+                    'band.plot.colour_by must be None or in [\'s\', \'l\']'
+                )
+
 
         if self.colour is not None:
                 from matplotlib.colors import CSS4_COLORS as c
                 from matplotlib import colormaps as cmaps
                 if self.colour not in c.keys() and self.colour not in cmaps.keys():
                     raise ValueError(
-                        f'band.colour: {self.colour!r} is not a valid colour'
-                        f'band.colour must be None or in\n{c.keys()}')
+                        f'band.plot.colour: {self.colour!r} is not a valid colour'
+                        f'band.plot.colour must be None or in\n{c.keys()}')
 
         # TODO figure out how to validate the literal types
 

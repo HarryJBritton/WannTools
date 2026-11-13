@@ -1,3 +1,5 @@
+from os import symlink
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -16,6 +18,7 @@ from wann_tools.context import CalculationContext
 from wann_tools.executors.base import Executor
 from wann_tools.kspace import kpath, KArea, KPath
 from wann_tools.kspace.space_groups import Space_Groups
+from wann_tools.util.w90_orbs import construct_am_op
 
 from .base import Calculation
 from .registry import register_calculation
@@ -90,7 +93,7 @@ class BandCalculation(Calculation):
                 else 1
             )
 
-            chunk_result, chunk_projection = Band(
+            chunk_result, chunk_s_projection, chunk_l_projection = Band(
                 hk=hk,
                 ef=config.hamiltonian.fermi_energy,
             )
@@ -107,7 +110,7 @@ class BandCalculation(Calculation):
                     time.perf_counter() - t0,
                 )
 
-            return np.dstack((chunk_result, chunk_projection))
+            return np.dstack((chunk_result, chunk_s_projection, chunk_l_projection))
 
         chunk_results = executor.map_chunks(worker, n_chunks)
 
@@ -169,8 +172,10 @@ class BandCalculation(Calculation):
         SCALE = 4
         plt.rcParams['font.family'] = output_settings.font
         plt.rcParams.update({'font.size': output_settings.font_size * SCALE})
-        fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size)) 
+        fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size))
 
+
+        # TODO allow for solid colour
         # Colour set up 
         vmin, vmax = plot_settings.clim if plot_settings.clim is not None else (None, None)
         norms = {
@@ -184,9 +189,29 @@ class BandCalculation(Calculation):
         
         # Main variables
         energy = result[..., 0]
-        proj_x = result[..., 1]
-        proj_y = result[..., 2]
-        proj_z = result[..., 3]
+        s_x = result[..., 1]
+        s_y = result[..., 2]
+        s_z = result[..., 3]
+        l_x = result[..., 4]
+        l_y = result[..., 5]
+        l_z = result[..., 6]
+
+        if plot_settings.colour_by is None:
+            raise NotImplementedError('Plot without arrows is not implemented yet.')
+        else:
+            if plot_settings.colour_by == 's':
+                plot_x = s_x
+                plot_y = s_y
+            elif plot_settings.colour_by == 'l':
+                plot_x = l_x
+                plot_y = l_y
+            else:
+                raise ValueError(
+                    f'Invalid colour_by variable {plot_settings.colour_by}'
+                )
+
+
+
 
         ax_lw = 0.5 * SCALE
         band_lw = 0.6 * SCALE
@@ -226,16 +251,16 @@ class BandCalculation(Calculation):
 
                 interp_u = LinearNDInterpolator(
                     grid_points,
-                    proj_x[...,ri].ravel(),
+                    plot_x[...,ri].ravel(),
                     fill_value=np.nan
                 )
                 interp_v  = LinearNDInterpolator(
                     grid_points,
-                    proj_y[...,ri].ravel(),
+                    plot_y[...,ri].ravel(),
                     fill_value=np.nan
                 )
 
-                proj_in_plane = np.sqrt(proj_x[...,ri]**2 + proj_y[...,ri]**2)
+                proj_in_plane = np.sqrt(plot_x[...,ri]**2 + plot_y[...,ri]**2)
 
                 interp_z = LinearNDInterpolator(
                     grid_points,
@@ -273,7 +298,7 @@ class BandCalculation(Calculation):
                             zc[::spacing],
                             angles="xy",
                             scale_units="xy",
-                            scale=2,
+                            scale=plot_settings.arrow_scale,
                             cmap=cmap,
                             norm=norm,
                             width=0.008
@@ -554,7 +579,7 @@ def Band(hk, ef: float = 0):
     nb = hk.shape[-1]
     no = nb // 2
 
-    proj_op = {
+    spin_proj_op = {
         'x': np.kron(np.eye(no), np.array([
             [0, 1],
             [1, 0],
@@ -568,34 +593,22 @@ def Band(hk, ef: float = 0):
             [0, -1],
         ])),
     }
+
+
+    # TODO pass through the orbital configuration
+    Lx, Ly, Lz =  construct_am_op(['d','d','d','p','p','p','p','p','p'])
+    angular_momentum_op = {
+        'x': Lx,
+        'y': Ly,
+        'z': Lz,
+    }
+
+
+
     vals, vecs = np.linalg.eigh(hk)
 
-    sz = proj_op['z']
-
-    if False:
-        cuts = np.flatnonzero(np.diff(vals) > 1e-5) + 1
-        for group in np.split(np.arange(nb), cuts):
-            if len(group) < 2:
-                continue
-
-            logger.debug('Found degen')
-
-            v = vecs[:,:, group]
-
-
-
-            Sproj = np.einsum(
-                'xil, ij, xjk -> xlk',
-                v.conj(),
-                sz,
-                v,
-                optimize=True,
-            )
-            _, U = np.linalg.eigh(Sproj)
-            vecs[:, :, group] = np.einsum('xij,xjk->xik', v, U, optimize=True)
-
-    S = np.array([proj_op['x'], proj_op['y'], proj_op['z']])
-    proj =  np.real(np.einsum(
+    S = np.array([spin_proj_op['x'], spin_proj_op['y'], spin_proj_op['z']])
+    s_proj =  np.real(np.einsum(
         'xik, aij, xjk -> xka',
         vecs.conj(),
         S,
@@ -604,10 +617,24 @@ def Band(hk, ef: float = 0):
     ))
 
 
-    return  vals - ef, proj
+    L = np.array([angular_momentum_op['x'], angular_momentum_op['y'], angular_momentum_op['z']])
+    l_proj =  np.real(np.einsum(
+        'xik, aij, xjk -> xka',
+        vecs.conj(),
+        L,
+        vecs,
+        optimize=True,
+    ))
 
 
-def export_CB(output_settings: OutputConfig, cmap: Colormap, norm: Norm):
+    return  vals - ef, s_proj, l_proj
+
+
+def export_CB(
+    output_settings: OutputConfig,
+    cmap: Colormap,
+    norm: Norm
+):
 
     fig, ax = plt.subplots(figsize=(1.5,4))
 
@@ -621,3 +648,8 @@ def export_CB(output_settings: OutputConfig, cmap: Colormap, norm: Norm):
                 bbox_inches="tight",
                 dpi=100,)
     plt.close(fig)
+
+
+
+        
+    

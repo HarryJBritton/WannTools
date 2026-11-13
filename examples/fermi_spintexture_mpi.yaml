@@ -7,12 +7,12 @@ hamiltonian:
 kspace:
   type: surface
   surface:
-    n1: 11
-    n2: 11
+    n1: 81
+    n2: 81
     level: 0
     fixed_axis: 2
-    centre: G
-    width:  3.2
+    centre: K'
+    width:  1
 
 calculation:
   type: band
@@ -24,20 +24,23 @@ calculation:
     mu: 0.0
     plot:
       enabled: true
-      colour: hot
-      scale: cbrt
-      clim: [0,1]
-      show_BZ: true
-      # export_CB: true
+      colour_by: l
+      colour: viridis
+      scale: linear
+      clim: [0,.2]
+      show_BZ: false
+      export_CB: true
       plot_ax: false
       sym_points: 'all'
+      arrow_spacing: 3
+      arrow_scale: 2
 
 
 
 execution:
   backend: mpi
   ranks: 10
-  chunk_size: 25
+  chunk_size: 30
 
 
 output:

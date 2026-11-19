@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from wann_tools.config import AppConfig
-
-import numpy as np
 from wann_tools.kspace.base import KSpaceProvider
+
 
 @dataclass
 class CalculationContext:

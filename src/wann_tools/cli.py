@@ -1,11 +1,11 @@
 
 import argparse
-import sys
 import logging
+import sys
 
 from wann_tools.config import load_config
-from wann_tools.runner import run
 from wann_tools.estimator import estimate
+from wann_tools.runner import run
 
 
 def configure_logging(config):

@@ -1,5 +1,6 @@
 from wann_tools.executors.serial import SerialExecutor
 
+
 def build_executor(config):
     if config.backend == 'serial':
         return SerialExecutor()

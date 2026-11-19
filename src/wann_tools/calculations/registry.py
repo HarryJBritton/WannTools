@@ -1,6 +1,5 @@
 from wann_tools.calculations.base import Calculation
 
-
 CALCULATIONS = {}
 
 def register_calculation(cls):

@@ -1,7 +1,5 @@
 import numpy as np
-import pytest
 
-from wann_tools.calculations.band import Band
 
 def test_band():
     hk = np.array([[

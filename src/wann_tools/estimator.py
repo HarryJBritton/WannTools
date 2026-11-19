@@ -1,17 +1,14 @@
 
-from wann_tools.config import AppConfig, ExecutionConfig
-
-from dataclasses import dataclass, field
 import math
+from dataclasses import dataclass, field
 
 from wann_tools.calculations.base import ResourceEstimate
-
-
-from wann_tools.wannham import build_hamiltonian
-from wann_tools.kspace import build_kspace
 from wann_tools.calculations.registry import get_calculation
+from wann_tools.config import AppConfig, ExecutionConfig
 from wann_tools.context import build_context
-from wann_tools.executors import build_executor
+from wann_tools.kspace import build_kspace
+from wann_tools.wannham import build_hamiltonian
+
 
 @dataclass
 class ExecutionPlan:

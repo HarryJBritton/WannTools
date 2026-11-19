@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 
+
 class Executor(ABC):
 
     @abstractmethod

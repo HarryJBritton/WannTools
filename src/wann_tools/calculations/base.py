@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
 from wann_tools.config import AppConfig
 from wann_tools.context import CalculationContext
 from wann_tools.executors.base import Executor
+
 
 @dataclass
 class ResourceEstimate:

@@ -1,9 +1,10 @@
-import numpy as np
 from typing import Any
 
-from wann_tools.kspace.base import KSpaceProvider
-from .space_groups import Space_Groups
+import numpy as np
 
+from wann_tools.kspace.base import KSpaceProvider
+
+from .space_groups import Space_Groups
 
 
 class KPath(KSpaceProvider):

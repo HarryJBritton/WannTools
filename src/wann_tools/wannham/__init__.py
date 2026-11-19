@@ -1,7 +1,8 @@
-from .wannham import WannHam
+import numpy as np
+
 from wann_tools.config import AppConfig
 
-import numpy as np
+from .wannham import WannHam
 
 __all__ = ['WannHam']
 

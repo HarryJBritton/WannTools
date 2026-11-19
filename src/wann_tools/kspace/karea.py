@@ -1,8 +1,11 @@
 from typing import Any
+
 import numpy as np
 
 from wann_tools.kspace.base import KSpaceProvider
+
 from .space_groups import Space_Groups
+
 
 class KArea(KSpaceProvider):
 

@@ -1,6 +1,7 @@
 
 from wann_tools.executors.base import Executor
 
+
 class MPIExecutor(Executor):
 
     def __init__(self, comm=None) -> None:

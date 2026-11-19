@@ -1,0 +1,24 @@
+line-length = 88
+indent-width = 4
+target-version = "py314"
+
+[lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "N",
+]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+
+[format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true
+docstring-code-line-length = "dynamic"

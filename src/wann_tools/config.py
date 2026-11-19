@@ -1,12 +1,9 @@
-from ast import Tuple
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Union, Type, cast
+from typing import Any, Literal, cast
 
-from mypy.util import T
 import numpy as np
 import yaml
-
 
 KSpaceType = Literal['path', 'surface', 'volume']
 CalculationType = Literal['spectral', 'band']
@@ -24,12 +21,11 @@ class FiniteHamiltonianConfig:
     layers: int | None = None
 
     def validate(self) -> None:
-        if self.enabled:
-            if self.layers is None or self.layers < 1:
-                raise ValueError(
-                    'hamiltonian.finite.layers must be a positive integer  '
-                    'when finite.enabled is true'
-                )
+        if self.enabled and (self.layers is None or self.layers < 1):
+            raise ValueError(
+                'hamiltonian.finite.layers must be a positive integer  '
+                'when finite.enabled is true'
+            )
 
 @dataclass
 class HamiltonianConfig:
@@ -180,7 +176,6 @@ class OmegaConfig:
 
     def to_array(self):
         """Return the configured energies as a NumPy array."""
-        import numpy as np
 
         self.validate()
 
@@ -244,35 +239,38 @@ class BandPlotConfig:
     show_title: bool = False
     sym_points: list[str] | str = 'all'
 
+    # Optional Calc
+    project_dir: str = 'none'
+
     def validate(self) -> None:
 
-        if self.colour_by is not None:
-            if self.colour_by.lower() not in ['s', 'l']:
-                raise ValueError(
-                    'band.plot.colour_by must be None or in [\'s\', \'l\']'
-                )
+        if self.colour_by is not None and self.colour_by.lower() not in ['s', 'l', 'j']:
+            raise ValueError(
+                'band.plot.colour_by must be None or in [\'s\', \'l\']'
+            )
 
 
         if self.colour is not None:
-                from matplotlib.colors import CSS4_COLORS as c
-                from matplotlib import colormaps as cmaps
-                if self.colour not in c.keys() and self.colour not in cmaps.keys():
-                    raise ValueError(
-                        f'band.plot.colour: {self.colour!r} is not a valid colour'
-                        f'band.plot.colour must be None or in\n{c.keys()}')
+            from matplotlib import colormaps as cmaps
+            from matplotlib.colors import CSS4_COLORS as c
+            if self.colour not in c and self.colour not in cmaps:
+                raise ValueError(
+                    f'band.plot.colour: {self.colour!r} is not a valid colour'
+                    f'band.plot.colour must be None or in\n{c.keys()}')
 
         # TODO figure out how to validate the literal types
 
-        if self.clim is not None:
-            if self.clim[0] >= self.clim[1]:
-                raise ValueError(f"element 0 of band.plot.clim must be less than element 1")
+        if self.clim is not None and self.clim[0] >= self.clim[1]:
+            raise ValueError("element 0 of band.plot.clim must be less than element 1")
 
         if self.arrow_spacing < 1:
             raise ValueError("band.plot.arrow_spacing must be greater that 0")
 
-        if type(self.sym_points) == str:
-            if self.sym_points != 'all':
-                raise ValueError('band.plot.sym_points must be list[str] or \'all\'') 
+        if type(self.sym_points) == str and self.sym_points != 'all':
+            raise ValueError('band.plot.sym_points must be list[str] or \'all\'') 
+
+        if self.project_dir not in ['none', 'perpendicular', 'tangent']:
+            raise ValueError("band.plot.projection_dir must be either 'none', 'perpendicular', or, 'tangent'")
 
 
 
@@ -372,7 +370,7 @@ class OutputConfig:
             raise ValueError
 
         if self.font_size <= 0:
-            raise ValueError(f'output.font_size must be positive')
+            raise ValueError('output.font_size must be positive')
 
         for i in range(2):
             if self.fig_size[i] <= 0:
@@ -537,6 +535,6 @@ def load_config(filename: str | Path) -> AppConfig:
         raw = yaml.safe_load(stream)
 
     if not isinstance(raw, dict):
-        raise ValueError("The configuration file must contain a YAML mapping")
+        raise TypeError("The configuration file must contain a YAML mapping")
 
     return _build_config(raw)

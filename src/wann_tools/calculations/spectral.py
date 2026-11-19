@@ -1,14 +1,15 @@
+import logging
+import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from wann_tools.calculations.base import ResourceEstimate
 from wann_tools.config import AppConfig
 from wann_tools.context import CalculationContext
 
 from .base import Calculation
 from .registry import register_calculation
-
-import numpy as np
-import matplotlib.pyplot as plt
-import logging
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -292,7 +293,7 @@ def Spectral(hk, omega, sproj=None, eta=0.05, lproj=None, nl=1):
     # Spin projection
     if sproj is None:
         ps = np.eye(2)
-    elif sproj not in pauli.keys():
+    elif sproj not in pauli:
         raise Exception(f'spin projection {sproj} is not a Pauli matrix.\nMust be in {pauli.keys()}')
     else:
         ps = pauli[sproj]

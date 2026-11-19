@@ -1,12 +1,11 @@
-from wann_tools.kspace.base import KSpaceProvider
-
-from .kpath import KPath
-from .karea import KArea
-from .load_nnkp import load_nnkp
+from typing import cast
 
 from wann_tools.config import AppConfig, KSpaceConfig, PathConfig, SurfaceConfig
+from wann_tools.kspace.base import KSpaceProvider
 
-from typing import cast
+from .karea import KArea
+from .kpath import KPath
+from .load_nnkp import load_nnkp
 
 
 def build_kspace(config: AppConfig) -> KSpaceProvider:

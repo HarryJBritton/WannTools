@@ -9,7 +9,7 @@ kspace:
   surface:
     n1: 81
     n2: 81
-    level: 0
+    level: 0.0
     fixed_axis: 2
     centre: K'
     width:  1
@@ -24,10 +24,10 @@ calculation:
     mu: 0.0
     plot:
       enabled: true
-      colour_by: l
-      colour: viridis
+      colour_by: s
+      colour: hot
       scale: linear
-      clim: [0,.2]
+      clim: [0,.3]
       show_BZ: false
       export_CB: true
       plot_ax: false

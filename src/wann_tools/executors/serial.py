@@ -1,5 +1,6 @@
 from wann_tools.executors.base import Executor
 
+
 class SerialExecutor(Executor):
     def map_chunks(self, worker, n_chunks: int) -> list:
         if n_chunks < 0:

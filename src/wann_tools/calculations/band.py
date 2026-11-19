@@ -1,33 +1,27 @@
-from os import symlink
+
+import logging
+import time
+from typing import cast
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.colors import Colormap, LogNorm, Norm, Normalize, CSS4_COLORS, PowerNorm
-from matplotlib.collections import LineCollection
-from matplotlib.ticker import AutoMinorLocator, LinearLocator, MaxNLocator
+import numpy as np
+from matplotlib import patches
 from matplotlib.cm import ScalarMappable
-
+from matplotlib.collections import LineCollection
+from matplotlib.colors import CSS4_COLORS, Colormap, LogNorm, Norm, Normalize, PowerNorm
+from matplotlib.ticker import AutoMinorLocator, LinearLocator, MaxNLocator
 from scipy.interpolate import LinearNDInterpolator
-from typing import cast
-
 
 from wann_tools.calculations.base import ResourceEstimate
 from wann_tools.config import AppConfig, BandConfig, OutputConfig, SurfaceConfig
 from wann_tools.context import CalculationContext
 from wann_tools.executors.base import Executor
-from wann_tools.kspace import kpath, KArea, KPath
-from wann_tools.kspace.space_groups import Space_Groups
+from wann_tools.kspace import KArea
 from wann_tools.util.w90_orbs import construct_am_op
 
 from .base import Calculation
 from .registry import register_calculation
-
-import numpy as np
-import logging
-import time
-import csv
-
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +33,20 @@ class BandCalculation(Calculation):
     def validate(self, config: AppConfig, context) -> None:
         ...
 
-    def estimate_resources(self, config: AppConfig, context: CalculationContext) -> ResourceEstimate:
+    def estimate_resources(
+        self,
+        config: AppConfig,
+        context: CalculationContext
+    )-> ResourceEstimate:
         ...
 
-    def run(self, config: AppConfig, context: CalculationContext, executor: Executor) -> int:
+    def run(self,
+        config: AppConfig,
+        context: CalculationContext,
+        executor: Executor
+    ) -> int:
 
-        settings = cast(BandConfig, config.calculation.band)
+        # settings = cast(BandConfig, config.calculation.band)
 
         # Flatten the k-grid while preserving its original shape.
         k_grid = context.kpoints.k
@@ -87,13 +89,13 @@ class BandCalculation(Calculation):
             # Transform only this chunk of k-points.
             hk = context.hamiltonian.ft(flat_k[start:stop])
 
-            nl = (
-                config.hamiltonian.finite.layers
-                if config.hamiltonian.finite.enabled
-                else 1
-            )
+            # nl = (
+            #     config.hamiltonian.finite.layers
+            #     if config.hamiltonian.finite.enabled
+            #     else 1
+            # )
 
-            chunk_result, chunk_s_projection, chunk_l_projection = Band(
+            chunk_result, chunk_s_projection, chunk_l_projection = band(
                 hk=hk,
                 ef=config.hamiltonian.fermi_energy,
             )
@@ -169,20 +171,24 @@ class BandCalculation(Calculation):
         output_settings = config.output
 
         # Pre config
-        SCALE = 4
+        scale = 4
         plt.rcParams['font.family'] = output_settings.font
-        plt.rcParams.update({'font.size': output_settings.font_size * SCALE})
-        fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size))
+        plt.rcParams.update({'font.size': output_settings.font_size * scale})
+        figsize=tuple(scale * x for x in output_settings.fig_size)
+        fig, ax = plt.subplots(figsize=figsize)
 
 
         # TODO allow for solid colour
         # Colour set up 
-        vmin, vmax = plot_settings.clim if plot_settings.clim is not None else (None, None)
+        if plot_settings.clim is not None:
+             vmin, vmax = plot_settings.clim 
+        else:
+             vmin, vmax = (None, None)
         norms = {
             "linear": lambda: Normalize(vmin=vmin, vmax=vmax),
             "sqrt": lambda: PowerNorm(gamma=0.5, vmin=vmin, vmax=vmax),
             "cbrt": lambda: PowerNorm(gamma=1./3., vmin=vmin, vmax=vmax),
-            "log": lambda: LogNorm(vmin=vmin if vmin is None else vmin + 1e-12, vmax=vmax),
+            "log": lambda: LogNorm(vmin=None, vmax=vmax),
         }
         norm = norms[plot_settings.scale]()
         cmap = plt.get_cmap(plot_settings.colour, 256*64)
@@ -191,10 +197,10 @@ class BandCalculation(Calculation):
         energy = result[..., 0]
         s_x = result[..., 1]
         s_y = result[..., 2]
-        s_z = result[..., 3]
+        # s_z = result[..., 3]
         l_x = result[..., 4]
         l_y = result[..., 5]
-        l_z = result[..., 6]
+        # l_z = result[..., 6]
 
         if plot_settings.colour_by is None:
             raise NotImplementedError('Plot without arrows is not implemented yet.')
@@ -205,6 +211,9 @@ class BandCalculation(Calculation):
             elif plot_settings.colour_by == 'l':
                 plot_x = l_x
                 plot_y = l_y
+            elif plot_settings.colour_by == 'j':
+                plot_x = l_x + 0.5 * s_x
+                plot_y = l_y + 0.5 * s_y
             else:
                 raise ValueError(
                     f'Invalid colour_by variable {plot_settings.colour_by}'
@@ -213,20 +222,20 @@ class BandCalculation(Calculation):
 
 
 
-        ax_lw = 0.5 * SCALE
-        band_lw = 0.6 * SCALE
+        ax_lw = 0.5 * scale
+        band_lw = 0.6 * scale
 
         cx = np.mean(kspace.k[..., 0])
         cy = np.mean(kspace.k[..., 1])
 
-        X = kspace.k[..., 0] - cx
-        Y = kspace.k[..., 1] - cy
+        x0 = kspace.k[..., 0] - cx
+        y0 = kspace.k[..., 1] - cy
 
         level = settings.mu
-        grid_points = np.column_stack((X.ravel(), Y.ravel()))
+        grid_points = np.column_stack((x0.ravel(), y0.ravel()))
 
-        FBZ = plot_settings.show_BZ
-        if FBZ:
+        show_bz = plot_settings.show_BZ
+        if show_bz:
             hexagon = patches.RegularPolygon(
                 (0, 0),
                 6,
@@ -245,7 +254,15 @@ class BandCalculation(Calculation):
         for ri in range(energy.shape[-1]):
             if energy[..., ri].max() >level and energy[..., ri].min() < level:
 
-                cs = ax.contour(X,Y, energy[..., ri], levels=[level], colors='black', lw = band_lw / 4)
+                cs = ax.contour(
+                    x0,
+                    y0,
+                    energy[..., ri],
+                    levels=[level],
+                    colors='black',
+                    lw = band_lw / 4
+                )
+
                 if hexagon is not None:
                     cs.set_clip_path(hexagon)
 
@@ -268,7 +285,7 @@ class BandCalculation(Calculation):
                     fill_value=np.nan
                 )
 
-                for idx, segments in enumerate(cs.allsegs):
+                for segments in cs.allsegs:
                     for points in segments:
                         if len(points) < 2:
                             continue
@@ -281,6 +298,31 @@ class BandCalculation(Calculation):
                         uc = interp_u(query_points)
                         vc = interp_v(query_points)
                         zc = interp_z(query_points)
+
+                        if plot_settings.project_dir != "none":
+
+                            if plot_settings.project_dir == "tangent":
+                                axis_x = -yc.copy()
+                                axis_y = xc.copy()
+
+                            elif plot_settings.project_dir == "perpendicular":
+                                axis_x = xc.copy()
+                                axis_y = yc.copy()
+
+                            else:
+                                raise ValueError(
+                                    f"Unknown projection: {plot_settings.project_dir}"
+                                )
+
+                            # Normalize projection axis
+                            normal = np.sqrt(axis_x**2 + axis_y**2)
+                            axis_x /= normal
+                            axis_y /= normal
+
+                            # Project vector field onto selected axis
+                            dot = uc * axis_x + vc * axis_y
+                            uc = dot * axis_x
+                            vc = dot * axis_y
 
                         valid = np.isfinite(uc) & np.isfinite(vc)
 
@@ -308,14 +350,14 @@ class BandCalculation(Calculation):
                             q.set_clip_path(hexagon)
 
                 if plot_settings.show_title:    
-                    ax.set_title(f'$E$–$E_F$={int(1000 * level):3d}{' meV' if level != 0 else ''}')
+                    unit = " meV" if level != 0 else ""
+                    ax.set_title(f"$E-E_F = {int(1000 * level):3d}{unit}$")
 
         for key, value in kspace.space_group.items():
 
-            if plot_settings.sym_points != 'all':
-                if key not in plot_settings.sym_points:
-                    continue
-
+            sym_points = plot_settings.sym_points
+            if sym_points != 'all' and key not in sym_points:
+                continue
 
             point = np.einsum(
                 'ji, j -> i',
@@ -337,7 +379,7 @@ class BandCalculation(Calculation):
                 textcoords='offset points',
             )
 
-        if FBZ:
+        if show_bz:
 
             radius = np.linalg.norm(np.einsum(
                 'ji, j->i',
@@ -349,8 +391,8 @@ class BandCalculation(Calculation):
             ax.set_xlim((-radius, radius))
             ax.set_ylim((-radius, radius))
         else:
-            ax.set_xlim((X.min(), X.max()))
-            ax.set_ylim((Y.min(), Y.max()))
+            ax.set_xlim((x0.min(), x0.max()))
+            ax.set_ylim((y0.min(), y0.max()))
 
         ax.set_ylabel(r'$k_y$ (Å$^{\mathrm{-1}}$)')
         ax.set_xlabel(r'$k_x$ (Å$^{\mathrm{-1}}$)')
@@ -362,22 +404,22 @@ class BandCalculation(Calculation):
         ax.tick_params(
             which='major',
             width=ax_lw,
-            length=3*SCALE,
-            labelsize=5*SCALE,
+            length=3*scale,
+            labelsize=5*scale,
         )
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
         ax.xaxis.set_minor_locator(AutoMinorLocator(2))
         ax.tick_params(
             which='minor',
             width=ax_lw,
-            length=1*SCALE,
+            length=1*scale,
         )       
 
         # Axis lw
         for spine in ax.spines.values():
             spine.set_linewidth(ax_lw)
 
-        if FBZ :
+        if show_bz :
             ax.set_axis_off()
         elif not plot_settings.plot_ax:
             ax.tick_params(
@@ -398,15 +440,20 @@ class BandCalculation(Calculation):
             ax.set_axis_on()
 
         config.output.directory.mkdir(parents=True, exist_ok=True)
+
+        fname = "surface_bands"
+        if surface_settings.centre is not None:
+            fname += '_' + surface_settings.centre
+
         fig.savefig(
-            config.output.directory / (f"surface_bands{'' if surface_settings.centre is None else "_"+surface_settings.centre}." + output_settings.format),
+            config.output.directory / (fname + '.' + output_settings.format),
             bbox_inches="tight",
             dpi=100,
         )
         plt.close(fig)
 
         if plot_settings.export_CB:
-            export_CB(
+            export_colourbar(
                 output_settings=output_settings,
                 cmap=cmap,
                 norm=norm,
@@ -423,10 +470,11 @@ class BandCalculation(Calculation):
         proj_dir = settings.spin_projection
 
         # Pre config
-        SCALE = 4 # Figure out how scale will work
+        scale = 4 # Figure out how scale will work
         plt.rcParams['font.family'] = output_settings.font
-        plt.rcParams.update({'font.size': output_settings.font_size * SCALE})
-        fig, ax = plt.subplots(figsize=tuple(SCALE * x for x in output_settings.fig_size) ) 
+        plt.rcParams.update({'font.size': output_settings.font_size * scale})
+        figsize = tuple(scale * x for x in output_settings.fig_size)
+        fig, ax = plt.subplots(figsize=figsize) 
 
         # Colour set up
         if plot_settings.colour is None:
@@ -445,8 +493,8 @@ class BandCalculation(Calculation):
             cmap = plt.get_cmap(plot_settings.colour, 256*64)
         
         
-        ax_lw = 0.5 * SCALE
-        band_lw = 0.6 * SCALE
+        ax_lw = 0.5 * scale
+        band_lw = 0.6 * scale
     
         k = kspace.time
         energy = result[..., 0]
@@ -469,7 +517,10 @@ class BandCalculation(Calculation):
                 elif proj_dir == 'z':
                     proj = result[...,ri, 3]
                 else:
-                    raise ValueError(f"calcualtion.band.spin_projection = '{proj_dir}' is not supported for path KStructure.")
+                    raise ValueError(
+                        f"calcualtion.band.spin_projection = '{proj_dir}'"
+                        " is not supported for path KStructure."
+                    )
 
                 # Generate plot points for variable colouring
                 points = np.array([k, energy[...,ri]]).T.reshape(-1,1,2)
@@ -516,14 +567,14 @@ class BandCalculation(Calculation):
                 fr'‹$s_{proj_dir if proj_dir is not None else ''}$›',
                 rotation=0,
                 labelpad=10,
-                fontsize=7*SCALE,
+                fontsize=7*scale,
             )
 
             cbar.ax.yaxis.set_label_coords(0.7, 1.5)
             cbar.ax.tick_params(
                 width=ax_lw,
-                length=3*SCALE,
-                labelsize=5*SCALE,
+                length=3*scale,
+                labelsize=5*scale,
             )
             
         ax.set_ylabel(r'$E - E_F$ (eV)')
@@ -544,14 +595,14 @@ class BandCalculation(Calculation):
         ax.tick_params(
             which='major',
             width=ax_lw,
-            length=3*SCALE,
-            labelsize=5*SCALE,
+            length=3*scale,
+            labelsize=5*scale,
         )
         ax.yaxis.set_minor_locator(AutoMinorLocator(2))
         ax.tick_params(
             which='minor',
             width=ax_lw,
-            length=1*SCALE,
+            length=1*scale,
         )
 
         # Axis lw
@@ -574,7 +625,7 @@ class BandCalculation(Calculation):
         )
         plt.close(fig)
 
-def Band(hk, ef: float = 0):
+def band(hk, ef: float = 0):
 
     nb = hk.shape[-1]
     no = nb // 2
@@ -596,32 +647,31 @@ def Band(hk, ef: float = 0):
 
 
     # TODO pass through the orbital configuration
-    Lx, Ly, Lz =  construct_am_op(['d','d','d','p','p','p','p','p','p'])
+    lx, ly, lz =  construct_am_op(['d','d','d','p','p','p','p','p','p'])
     angular_momentum_op = {
-        'x': Lx,
-        'y': Ly,
-        'z': Lz,
+        'x': lx,
+        'y': ly,
+        'z': lz,
     }
-
-
 
     vals, vecs = np.linalg.eigh(hk)
 
-    S = np.array([spin_proj_op['x'], spin_proj_op['y'], spin_proj_op['z']])
+    s_op = np.array([spin_proj_op['x'], spin_proj_op['y'], spin_proj_op['z']])
     s_proj =  np.real(np.einsum(
         'xik, aij, xjk -> xka',
         vecs.conj(),
-        S,
+        s_op,
         vecs,
         optimize=True,
     ))
 
 
-    L = np.array([angular_momentum_op['x'], angular_momentum_op['y'], angular_momentum_op['z']])
+    l_op = np.array(
+        [angular_momentum_op['x'], angular_momentum_op['y'], angular_momentum_op['z']])
     l_proj =  np.real(np.einsum(
         'xik, aij, xjk -> xka',
         vecs.conj(),
-        L,
+        l_op,
         vecs,
         optimize=True,
     ))
@@ -630,7 +680,7 @@ def Band(hk, ef: float = 0):
     return  vals - ef, s_proj, l_proj
 
 
-def export_CB(
+def export_colourbar(
     output_settings: OutputConfig,
     cmap: Colormap,
     norm: Norm

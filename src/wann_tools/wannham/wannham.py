@@ -1,7 +1,9 @@
 import os
+
 import numpy as np
 
-class WannHam():
+
+class WannHam:
 
     # def __init__(self):
     #     self.file = None
@@ -98,7 +100,7 @@ class WannHam():
         new_hr = np.zeros((u.shape[0], self.nb * layers, self.nb * layers), dtype=self.dtype)
         new_rvec = np.hstack((u, np.zeros((u.shape[0], 1))))
 
-        new_ndeg = np.zeros((u.shape[0]))
+        new_ndeg = np.zeros(u.shape[0])
 
         for ri in range(len(idx)):
             hr_idx = idx[ri]

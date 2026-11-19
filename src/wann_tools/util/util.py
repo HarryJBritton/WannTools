@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def batched_eigh(A, chunk_size=256):
     n = A.shape[0]
 
